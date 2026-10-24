@@ -25,6 +25,8 @@ An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voic
 - 失败提示：某句合成失败时，小喇叭旁出现红点，悬停可看原因；
 - 长回复按句切分、提前两段预生成，句间不卡顿。
 
+![朗读时小喇叭右侧的控制条](docs/images/bar.png)
+
 **其他**
 
 - 设置 → **角色头像**：头像、ID、字号、预设、朗读、引擎、语气、语速、服务地址、试听、诊断都在这页；
@@ -108,8 +110,6 @@ POST /tts
 | `dsh-avatar-frame/rate/v1` / `tone/v1` | 语速 / 语气 |
 
 同一个浏览器的多个窗口之间会同步。换电脑、清缓存会丢，插件没有云同步。
-
-![插件详情页](docs/images/bundle.png)
 
 ## 已知限制
 

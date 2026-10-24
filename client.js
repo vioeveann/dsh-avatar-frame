@@ -1217,7 +1217,9 @@ window.__ModuleLoader__.load({
           )
         : null;
 
-      const failureDot = failed ? h('span', { className: 'dsav-errorDot', title: speech.error, 'aria-label': speech.error }) : null;
+      // 只有小喇叭在场时才提示朗读失败，否则红点会孤零零挂在 ID 后面。
+      const failureDot =
+        showSpeaker && failed ? h('span', { className: 'dsav-errorDot', title: speech.error, 'aria-label': speech.error }) : null;
       // 朗读时把控制条接在小喇叭右边，紧贴正在读的那一行。
       const inlineControls = speaking && speech.engine === 'clone' ? h(SpeechControls, { t, speech }) : null;
 
