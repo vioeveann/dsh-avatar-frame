@@ -134,6 +134,8 @@ function setup(ctx) {
   let handle = null;
   let startedAt = null;
   let lastExit = null;
+  // 主动停止时不要把服务日志当成「失败输出」显示出来。
+  let stopRequested = false;
 
   const state = () => ({
     ok: true,
@@ -148,6 +150,7 @@ function setup(ctx) {
     if (handle === null) return false;
     const current = handle;
     handle = null;
+    stopRequested = true;
     try {
       current.terminate();
     } catch {
@@ -197,7 +200,10 @@ function setup(ctx) {
       }
     };
     const finish = (spawned, exitCode, signal) => {
-      const output = (collectedText(spawned.stderr) + collectedText(spawned.stdout)).trim().slice(-1600);
+      const output = stopRequested
+        ? ''
+        : (collectedText(spawned.stderr) + collectedText(spawned.stdout)).trim().slice(-1600);
+      stopRequested = false;
       handle = null;
       startedAt = null;
       lastExit = { exitCode, signal, at: Date.now(), output };

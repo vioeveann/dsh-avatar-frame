@@ -50,9 +50,6 @@ window.__ModuleLoader__.load({
       'unit.hour': '小时',
       'unit.minute': '分',
       'unit.second': '秒',
-      'settings.title': 'AI 头像',
-      'settings.description': '每轮回复左侧的头像与 ID，只保存在本机。',
-      'settings.idPlaceholder': '头像 ID（显示在头像旁）',
       'settings.change': '更换',
       'settings.reset': '恢复默认',
       'bundle.title': '头像与 ID',
@@ -143,9 +140,6 @@ window.__ModuleLoader__.load({
       'unit.hour': 'h ',
       'unit.minute': 'm ',
       'unit.second': 's',
-      'settings.title': 'Assistant avatar',
-      'settings.description': 'The avatar and ID beside every reply. Stored on this device only.',
-      'settings.idPlaceholder': 'Avatar ID (shown beside the avatar)',
       'settings.change': 'Change',
       'settings.reset': 'Reset',
       'bundle.title': 'Avatar and ID',
@@ -2429,12 +2423,6 @@ window.__ModuleLoader__.load({
 .dsav-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
 .dsav-btnPrimary{background:var(--dsw-alias-button-primary-fill);border-color:transparent;color:var(--dsw-alias-label-primary-inverted)}
 .dsav-btnPrimary:hover:not(:disabled){background:var(--dsw-alias-button-primary-hover)}
-.dsav-setRow{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:14px;line-height:20px}
-.dsav-setText{min-width:0;flex:1}
-.dsav-setTitle{font-size:14px;line-height:20px}
-.dsav-setDescription{color:var(--dsw-alias-label-secondary);margin-top:4px;font-size:12px;line-height:18px}
-.dsav-setInput{margin-top:10px;max-width:240px}
-.dsav-setSide{display:flex;align-items:center;gap:8px;flex:none;padding-top:2px}
 .dsav-setPreview{box-sizing:border-box;width:32px;height:32px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-tertiary);display:inline-flex;align-items:center;justify-content:center;overflow:hidden}
 .dsav-setPreview img{width:100%;height:100%;object-fit:cover;display:block}
 .dsav-setPreview svg{width:17px;height:17px;display:block}
