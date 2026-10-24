@@ -40,7 +40,8 @@ An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voic
 
 1. 把本仓库放到任意目录；
 2. 打开 DeepSeek Harness → 插件管理 → 安装外部 bundle，指向这个目录（含 `package.json` 与 `cordis.patch.yml`）；
-3. 打开一次界面；插件的前端模块在页面加载时注入，必要时刷新（Ctrl+R）。
+3. 打开一次界面；插件的前端模块在页面加载时注入，必要时刷新（Ctrl+R）；
+4. 「启动服务」那一块跑在宿主端，**首次安装、以及每次升级这个插件后，需要重启一次 DSH** 才生效。
 
 ### 从 GitHub 安装
 
@@ -95,6 +96,13 @@ python examples/simple_tts.py          # 监听 127.0.0.1:8123
 启动命令   "F:\tts\python.exe" server.py
 工作目录   F:\tts
 环境变量   HF_HOME=F:\tts\hf-cache
+```
+
+想直接用仓库里的示例服务试这个功能：
+
+```
+启动命令   python examples/simple_tts.py
+工作目录   <本仓库所在目录>
 ```
 
 几点要说清楚：
