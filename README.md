@@ -50,6 +50,8 @@ git clone https://github.com/vioeveann/dsh-avatar-frame.git
 
 然后同上，把插件管理指向克隆下来的目录。
 
+![插件详情页](docs/images/bundle.png)
+
 ## 使用
 
 1. 点任意一轮回复左侧的**头像**，或「已完成」那一行的 **ID**，打开设置面板；
@@ -136,7 +138,7 @@ POST /tts
 
 同一个浏览器的多个窗口之间会同步。换电脑、清缓存会丢，插件没有云同步。
 
-![插件详情页](docs/images/bundle.png)
+![设置 → 角色头像](docs/images/settings.png)
 
 ## 已知限制
 
