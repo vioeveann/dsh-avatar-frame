@@ -1,8 +1,8 @@
 # 角色头像框 · dsh-avatar-frame
 
-> DeepSeek Harness 的界面插件：在每轮 AI 回复左侧显示角色头像和可编辑的 ID，并可以把回复**朗读**出来——用系统语音，或者调用你自己跑的本地 TTS 服务。
+> DeepSeek Harness 的界面插件：在每轮 AI 回复左侧显示角色头像和可编辑的 ID，并可以把回复**朗读**出来——用系统语音，或者调用你自己跑的本地 TTS 服务；也可以在设置里一键启动、停止那个服务进程。
 
-An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voice model, **no** reference audio and **no** service: if you want a cloned voice, you run your own TTS endpoint and point the plugin at it.
+An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voice model, **no** reference audio and **no** service: if you want a cloned voice, you run your own TTS endpoint and point the plugin at it (the plugin can launch that process for you).
 
 ![头像与 ID 在每轮回复左侧](docs/images/row.png)
 
@@ -30,6 +30,7 @@ An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voic
 **其他**
 
 - 设置 → **角色头像**：头像、ID、字号、预设、朗读、引擎、语气、语速、服务地址、试听、诊断都在这页；
+- **语音服务进程**：一键启动/停止你自己配置的服务进程，可勾选「随 DSH 启动」（设置页与插件详情页都能操作）；
 - 诊断信息：服务状态与模型名、上一句合成耗时、播放进度、最近一次错误；
 - 中文 / English 双语文案；
 - 所有数据只在本机 `localStorage`，不上传、不联网（除非你把服务地址指向远程）。
@@ -164,8 +165,8 @@ POST /tts
 .
 ├── package.json          # bundle 元信息与前端入口声明
 ├── cordis.patch.yml      # 插件装配
-├── index.js              # 宿主侧入口（空实现）
-├── client.js             # 全部前端逻辑与样式（无构建步骤）
+├── index.js              # 宿主端：语音服务的启动/停止与配置（同源路由）
+├── client.js             # 前端：界面、播放、设置页（单文件、无构建）
 ├── locale/               # zh / en 文案与插件描述
 ├── icon.svg
 ├── README.md
@@ -175,7 +176,8 @@ POST /tts
 └── examples/simple_tts.py
 ```
 
-`client.js` 是单文件、无构建、无依赖（除 React 由宿主提供）。改完刷新界面即可生效。
+`client.js` 是单文件、无构建、无依赖（除 React 由宿主提供）：改完刷新界面即可生效。
+`index.js` 只在 DSH 启动时加载：改动它需要重启 DSH。
 
 ## 许可
 
