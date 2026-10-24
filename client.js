@@ -78,6 +78,7 @@ window.__ModuleLoader__.load({
       'status.checking': '检测中',
       'status.online': '已连接',
       'status.offline': '未连接',
+      'endpoint.offlineHint': '连不上时先确认语音服务已经启动；启动后这里每 8 秒自动重试，不用刷新。',
       'tone.label': '语气',
       'tone.calm': '平稳',
       'tone.normal': '自然',
@@ -150,6 +151,7 @@ window.__ModuleLoader__.load({
       'status.checking': 'Checking',
       'status.online': 'Connected',
       'status.offline': 'Not connected',
+      'endpoint.offlineHint': 'Start your TTS service first; this dot retries every 8 seconds and reconnects on its own.',
       'tone.label': 'Tone',
       'tone.calm': 'Calm',
       'tone.normal': 'Natural',
@@ -1365,17 +1367,27 @@ window.__ModuleLoader__.load({
       const [state, setState] = React.useState({ status: 'checking', model: null });
       React.useEffect(() => {
         const address = (endpoint || '').trim().replace(/\/+$/, '') || DEFAULT_ENDPOINT;
-        const controller = new AbortController();
         let alive = true;
-        // 服务重启时第一次请求可能落在旧连接上，先重试一次再判定离线。
+        let retryTimer = null;
+        let controller = null;
+        // 服务重启时第一次请求可能落在旧连接上，先重试一次再判定离线；
+        // 判定离线后每 8 秒再探一次，服务起来后界面会自己变回已连接。
+        const schedule = (delay) => {
+          retryTimer = window.setTimeout(() => {
+            if (!alive) return;
+            probe(0);
+          }, delay);
+        };
         const probe = (attempt) => {
+          if (!alive) return;
+          controller = new AbortController();
           const timer = window.setTimeout(() => controller.abort(), 4000);
           fetch(address + '/health', { signal: controller.signal })
             .then((response) => {
               if (!alive) return;
               if (!response.ok) {
-                if (attempt === 0) window.setTimeout(() => probe(1), 700);
-                else setState({ status: 'offline', model: null });
+                if (attempt === 0) schedule(700);
+                else setOffline();
                 return;
               }
               return response
@@ -1389,12 +1401,16 @@ window.__ModuleLoader__.load({
             })
             .catch(() => {
               if (!alive) return;
-              if (attempt === 0) window.setTimeout(() => probe(1), 700);
-              else setState({ status: 'offline', model: null });
+              if (attempt === 0) schedule(700);
+              else setOffline();
             })
             .finally(() => {
               window.clearTimeout(timer);
             });
+        };
+        const setOffline = () => {
+          setState({ status: 'offline', model: null });
+          schedule(8000);
         };
         // Wait for typing to settle, so the address is not probed per keystroke.
         const debounce = window.setTimeout(() => {
@@ -1404,7 +1420,8 @@ window.__ModuleLoader__.load({
         return () => {
           alive = false;
           window.clearTimeout(debounce);
-          controller.abort();
+          if (retryTimer !== null) window.clearTimeout(retryTimer);
+          if (controller !== null) controller.abort();
         };
       }, [endpoint]);
       return state;
@@ -1436,6 +1453,7 @@ window.__ModuleLoader__.load({
           ),
         ),
         h('div', { className: 'dsav-endpointHint' }, t('engine.hint')),
+        status.status === 'offline' ? h('div', { className: 'dsav-endpointHint' }, t('endpoint.offlineHint')) : null,
       );
     }
 
