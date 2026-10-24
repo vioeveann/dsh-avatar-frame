@@ -1218,11 +1218,13 @@ window.__ModuleLoader__.load({
         : null;
 
       const failureDot = failed ? h('span', { className: 'dsav-errorDot', title: speech.error, 'aria-label': speech.error }) : null;
+      // 朗读时把控制条接在小喇叭右边，紧贴正在读的那一行。
+      const inlineControls = speaking && speech.engine === 'clone' ? h(SpeechControls, { t, speech }) : null;
 
       const captionRow =
         caption === null && speaker === null && failureDot === null
           ? null
-          : h('div', { className: 'dsav-captionRow' }, caption, speaker, failureDot);
+          : h('div', { className: 'dsav-captionRow' }, caption, speaker, inlineControls, failureDot);
 
       return h(
         'div',
@@ -1937,20 +1939,14 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** 播放控制条：暂停/继续、上一句/下一句、语速、停止。 */
-    function SpeechBar({ t }) {
-      const speech = useSpeech();
-      // The system voice has no sentences to skip or buffers to pause.
-      if (speech.status === 'idle' || speech.engine !== 'clone') return null;
+    /** 朗读中的行内控制条：暂停/继续、上一句/下一句、语速、停止。 */
+    function SpeechControls({ t, speech }) {
       const paused = speech.status === 'paused';
       const atStart = speech.index <= 0;
       const atEnd = speech.index >= speech.total - 1;
       return h(
-        'div',
-        { className: 'dsav-player' },
-        h(
-          'div',
-          { className: 'dsav-bar', role: 'group', 'aria-label': t('bar.label') },
+        'span',
+        { className: 'dsav-inlineBar', role: 'group', 'aria-label': t('bar.label') },
         h(
           'button',
           {
@@ -2007,7 +2003,6 @@ window.__ModuleLoader__.load({
             onClick: () => stopSpeech(),
           },
           '✕',
-        ),
         ),
       );
     }
@@ -2198,9 +2193,8 @@ window.__ModuleLoader__.load({
 .dsav-state-checking{color:var(--dsw-alias-label-tertiary);opacity:.7}
 .dsav-endpointHint{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px;margin-top:6px}
 .dsav-errorDot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-error-primary);flex:none;margin-left:2px}
-.dsav-player{position:fixed;left:0;right:0;bottom:92px;display:flex;justify-content:center;pointer-events:none;z-index:60}
-.dsav-bar{pointer-events:auto;display:flex;align-items:center;gap:2px;padding:3px 6px;width:max-content;max-width:calc(100vw - 32px);border-radius:999px;background:var(--dsw-alias-bg-l1);border:1px solid var(--dsw-alias-line-border);box-shadow:var(--dsw-alias-shadow-lv2);font-size:12px;color:var(--dsw-alias-label-secondary)}
-.dsav-barBtn{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 6px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:13px;line-height:1;cursor:pointer}
+.dsav-inlineBar{display:inline-flex;align-items:center;gap:0;margin-left:6px;padding:0 2px;border-radius:999px;border:1px solid var(--dsw-alias-line-border);background:var(--dsw-alias-bg-l1);vertical-align:middle}
+.dsav-barBtn{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 4px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:12px;line-height:1;cursor:pointer}
 .dsav-barBtn:hover:not(:disabled){background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-label-primary)}
 .dsav-barBtn:disabled{opacity:.35;cursor:default}
 .dsav-barMain{font-size:12px}
@@ -2254,9 +2248,6 @@ window.__ModuleLoader__.load({
       );
       ctx.slots.inject('plugins.bundle.config', () =>
         ctx.slots.register({ name: 'plugins.bundle.config', key: 'dsh-avatar-frame', locale: NS }, BundlePanel),
-      );
-      ctx.slots.inject('shell.overlay', () =>
-        ctx.slots.register({ name: 'shell.overlay', id: 'dsh-avatar-frame.player', order: 38, locale: NS }, SpeechBar),
       );
       ctx.slots.inject('settings.section', () =>
         ctx.slots.register(

@@ -1,6 +1,6 @@
 {
   "name": "dsh-avatar-frame",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "private": true,
   "type": "module",
   "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own local TTS service, with tone and speed controls, presets, and a playback bar.",
