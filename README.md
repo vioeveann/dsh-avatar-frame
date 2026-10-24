@@ -129,6 +129,9 @@ POST /tts
 ├── client.js             # 全部前端逻辑与样式（无构建步骤）
 ├── locale/               # zh / en 文案与插件描述
 ├── icon.svg
+├── README.md
+├── CHANGELOG.md
+├── LICENSE
 ├── docs/                 # 接口契约、截图
 └── examples/simple_tts.py
 ```
