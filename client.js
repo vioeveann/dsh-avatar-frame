@@ -1869,6 +1869,7 @@ window.__ModuleLoader__.load({
      */
     function BundlePanel({ t, view }) {
       const avatar = useAvatar();
+      const status = useCloneStatus(avatar.endpoint);
       const fileRef = React.useRef(null);
       if (view !== 'page') return null;
       return h(
@@ -1932,6 +1933,8 @@ window.__ModuleLoader__.load({
         h(RateField, { t }),
         avatar.engine === 'clone' ? h(AuditionButton, { t }) : null,
         h(PresetBar, { t }),
+        h('div', { className: 'dsav-sectionTitle' }, t('section.service')),
+        h(ServiceControl, { t, online: status.status === 'online' }),
         h('div', { className: 'dsav-bundleHint' }, t('bundle.hint')),
       );
     }
