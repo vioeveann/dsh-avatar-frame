@@ -99,6 +99,16 @@ function loopbackOrigin(req) {
   }
 }
 
+/** 把一行命令写成临时启动脚本：cmd 对 argv 的引号转义会吃掉内层引号。 */
+function writeLaunchScript(command) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-avatar-frame-'));
+  const file = path.join(dir, process.platform === 'win32' ? 'launch.cmd' : 'launch.sh');
+  const body =
+    process.platform === 'win32' ? `@echo off\r\n${command}\r\n` : `#!/bin/sh\n${command}\n`;
+  fs.writeFileSync(file, body, 'utf8');
+  return file;
+}
+
 export function apply(ctx) {
   if (typeof ctx.inject !== 'function') {
     ctx.logger?.warn?.('dsh-avatar-frame: inject unavailable, service control disabled');
@@ -164,10 +174,41 @@ function setup(ctx) {
     }
 
     const env = { ...process.env, ...parseEnv(config.env) };
-    const argv =
-      process.platform === 'win32'
-        ? [process.env.ComSpec || 'cmd.exe', '/d', '/s', '/c', command]
-        : ['/bin/sh', '-c', command];
+    // 命令行不能直接塞给 cmd 的 argv：Node 的 Windows 参数转义会把内层引号
+    // 变成 `\"`，cmd 就找不到程序。写成临时脚本再执行，引号原样保留。
+    let scriptFile = null;
+    let argv;
+    try {
+      scriptFile = writeLaunchScript(command);
+      argv =
+        process.platform === 'win32'
+          ? [process.env.ComSpec || 'cmd.exe', '/d', '/s', '/c', scriptFile]
+          : ['/bin/sh', scriptFile];
+    } catch (error) {
+      return { ok: false, error: `cannot prepare launch script: ${String(error && error.message ? error.message : error)}` };
+    }
+
+    const collectedText = (stream) => {
+      try {
+        const read = stream.readFrom(0);
+        return typeof read?.text === 'string' ? read.text : '';
+      } catch {
+        return '';
+      }
+    };
+    const finish = (spawned, exitCode, signal) => {
+      const output = (collectedText(spawned.stderr) + collectedText(spawned.stdout)).trim().slice(-1600);
+      handle = null;
+      startedAt = null;
+      lastExit = { exitCode, signal, at: Date.now(), output };
+      if (scriptFile !== null) {
+        try {
+          fs.rmSync(scriptFile, { force: true });
+        } catch {
+          // 临时文件由系统清理。
+        }
+      }
+    };
 
     try {
       const spawned = subprocess.spawn({
@@ -182,19 +223,22 @@ function setup(ctx) {
       spawned.done.then(
         (outcome) => {
           if (handle !== spawned) return;
-          handle = null;
-          startedAt = null;
-          lastExit = { exitCode: outcome.exitCode, signal: outcome.signal, at: Date.now() };
+          finish(spawned, outcome.exitCode, outcome.signal);
         },
         () => {
           if (handle !== spawned) return;
-          handle = null;
-          startedAt = null;
-          lastExit = { exitCode: null, signal: null, at: Date.now() };
+          finish(spawned, null, null);
         },
       );
       return { ok: true };
     } catch (error) {
+      if (scriptFile !== null) {
+        try {
+          fs.rmSync(scriptFile, { force: true });
+        } catch {
+          // 忽略。
+        }
+      }
       return { ok: false, error: String(error && error.message ? error.message : error) };
     }
   };

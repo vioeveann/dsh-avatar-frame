@@ -2115,12 +2115,14 @@ window.__ModuleLoader__.load({
       const [draft, setDraft] = React.useState({ command: '', cwd: '', env: '' });
       const [busy, setBusy] = React.useState('');
       const [message, setMessage] = React.useState(null);
+      const [lastExit, setLastExit] = React.useState(null);
 
       const adopt = (data) => {
         if (data === null || typeof data !== 'object') return;
         if (data.state !== undefined) adopt(data.state);
         const next = data.config || EMPTY_SERVICE_CONFIG;
         setRunning(data.running === true);
+        setLastExit(data.lastExit && typeof data.lastExit === 'object' ? data.lastExit : null);
         setConfig({
           command: typeof next.command === 'string' ? next.command : '',
           cwd: typeof next.cwd === 'string' ? next.cwd : '',
@@ -2161,7 +2163,11 @@ window.__ModuleLoader__.load({
             } else {
               setMessage(t('service.' + action + 'Done'));
             }
-            if (action === 'start') window.setTimeout(recheckService, 1500);
+            if (action === 'start') {
+              window.setTimeout(recheckService, 1500);
+              // 进程若几秒内就退出，把它的输出取回来给用户看。
+              window.setTimeout(load, 3000);
+            }
             if (action === 'stop') window.setTimeout(recheckService, 300);
           })
           .catch((error) => {
@@ -2288,6 +2294,9 @@ window.__ModuleLoader__.load({
           ),
         ),
         message === null ? null : h('div', { className: 'dsav-endpointHint' }, message),
+        !running && lastExit !== null && lastExit.output
+          ? h('pre', { className: 'dsav-serviceLog' }, lastExit.output)
+          : null,
       );
     }
 
@@ -2503,6 +2512,7 @@ window.__ModuleLoader__.load({
 .dsav-serviceConfig summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}
 .dsav-serviceField{display:flex;flex-direction:column;gap:4px;margin-top:4px}
 .dsav-serviceEnv{min-height:64px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:18px}
+.dsav-serviceLog{margin:0;padding:8px 10px;max-height:140px;overflow:auto;border-radius:6px;background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-state-error-primary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;line-height:16px;white-space:pre-wrap;word-break:break-word}
 @media (prefers-reduced-motion: reduce){.dsav-frame,.dsav-process,.dsav-chevron{transition:none}}
 `;
 
