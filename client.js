@@ -2119,7 +2119,11 @@ window.__ModuleLoader__.load({
 
       const adopt = (data) => {
         if (data === null || typeof data !== 'object') return;
-        if (data.state !== undefined) adopt(data.state);
+        // 动作响应是 { ok, state }：只认里面那份状态，别用外层把 running 覆盖成 false。
+        if (data.state !== undefined) {
+          adopt(data.state);
+          return;
+        }
         const next = data.config || EMPTY_SERVICE_CONFIG;
         setRunning(data.running === true);
         setLastExit(data.lastExit && typeof data.lastExit === 'object' ? data.lastExit : null);
