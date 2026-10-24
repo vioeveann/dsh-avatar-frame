@@ -1937,7 +1937,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** 顶部的播放控制条：暂停/继续、上一句/下一句、语速、停止。 */
+    /** 播放控制条：暂停/继续、上一句/下一句、语速、停止。 */
     function SpeechBar({ t }) {
       const speech = useSpeech();
       // The system voice has no sentences to skip or buffers to pause.
@@ -1947,7 +1947,10 @@ window.__ModuleLoader__.load({
       const atEnd = speech.index >= speech.total - 1;
       return h(
         'div',
-        { className: 'dsav-bar', role: 'group', 'aria-label': t('bar.label') },
+        { className: 'dsav-player' },
+        h(
+          'div',
+          { className: 'dsav-bar', role: 'group', 'aria-label': t('bar.label') },
         h(
           'button',
           {
@@ -2004,6 +2007,7 @@ window.__ModuleLoader__.load({
             onClick: () => stopSpeech(),
           },
           '✕',
+        ),
         ),
       );
     }
@@ -2194,7 +2198,8 @@ window.__ModuleLoader__.load({
 .dsav-state-checking{color:var(--dsw-alias-label-tertiary);opacity:.7}
 .dsav-endpointHint{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px;margin-top:6px}
 .dsav-errorDot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-error-primary);flex:none;margin-left:2px}
-.dsav-bar{display:flex;align-items:center;gap:2px;margin:0 auto 6px;padding:3px 6px;width:max-content;max-width:100%;border-radius:999px;background:var(--dsw-alias-bg-l1);border:1px solid var(--dsw-alias-line-border);box-shadow:var(--dsw-alias-shadow-lv1);font-size:12px;color:var(--dsw-alias-label-secondary)}
+.dsav-player{position:fixed;left:0;right:0;bottom:92px;display:flex;justify-content:center;pointer-events:none;z-index:60}
+.dsav-bar{pointer-events:auto;display:flex;align-items:center;gap:2px;padding:3px 6px;width:max-content;max-width:calc(100vw - 32px);border-radius:999px;background:var(--dsw-alias-bg-l1);border:1px solid var(--dsw-alias-line-border);box-shadow:var(--dsw-alias-shadow-lv2);font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsav-barBtn{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 6px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:13px;line-height:1;cursor:pointer}
 .dsav-barBtn:hover:not(:disabled){background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-label-primary)}
 .dsav-barBtn:disabled{opacity:.35;cursor:default}
@@ -2250,8 +2255,8 @@ window.__ModuleLoader__.load({
       ctx.slots.inject('plugins.bundle.config', () =>
         ctx.slots.register({ name: 'plugins.bundle.config', key: 'dsh-avatar-frame', locale: NS }, BundlePanel),
       );
-      ctx.slots.inject('conversation.composer.dock', () =>
-        ctx.slots.register({ name: 'conversation.composer.dock', id: 'dsh-avatar-frame.bar', order: 6, locale: NS }, SpeechBar),
+      ctx.slots.inject('shell.overlay', () =>
+        ctx.slots.register({ name: 'shell.overlay', id: 'dsh-avatar-frame.player', order: 38, locale: NS }, SpeechBar),
       );
       ctx.slots.inject('settings.section', () =>
         ctx.slots.register(
