@@ -87,9 +87,30 @@ function send(res, status, payload) {
   res.end(body);
 }
 
+/** 只接受本机来源的请求：这条路由能启动进程，不能对任意页面开放。 */
+function loopbackOrigin(req) {
+  const origin = req.headers?.origin;
+  if (origin === undefined) return true;
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+  } catch {
+    return false;
+  }
+}
+
 export function apply(ctx) {
-  const server = ctx.get('webServer');
-  const subprocess = ctx.get('subprocess');
+  if (typeof ctx.inject !== 'function') {
+    ctx.logger?.warn?.('dsh-avatar-frame: inject unavailable, service control disabled');
+    return;
+  }
+  // webServer 与 subprocess 都是注入式服务，用 inject 等它们就绪。
+  ctx.inject(['webServer', 'subprocess'], (host) => setup(host));
+}
+
+function setup(ctx) {
+  const server = ctx.webServer;
+  const subprocess = ctx.subprocess;
   if (server === undefined || typeof server.register !== 'function') {
     ctx.logger?.warn?.('dsh-avatar-frame: webServer unavailable, service control disabled');
     return;
@@ -200,6 +221,10 @@ export function apply(ctx) {
       send(res, 404, { ok: false, error: 'not found' });
       return;
     }
+    if (!loopbackOrigin(req)) {
+      send(res, 403, { ok: false, error: 'origin not trusted' });
+      return;
+    }
     try {
       if (req.method === 'GET') {
         send(res, 200, state());
@@ -231,18 +256,17 @@ export function apply(ctx) {
     }
   };
 
-  const disposeRoute = server.register({ kind: 'exact', path: ROUTE, handler });
-  ctx.effect(
-    () => () => {
+  ctx.effect(() => {
+    const disposeRoute = server.register({ kind: 'exact', path: ROUTE, handler });
+    return () => {
       try {
         disposeRoute();
       } catch {
         // 路由已随宿主卸载。
       }
       void stop();
-    },
-    'dsh-avatar-frame: service route',
-  );
+    };
+  }, 'dsh-avatar-frame: service route');
 
   if (config.autostart === true && String(config.command || '').trim() !== '') {
     ctx.logger?.info?.('dsh-avatar-frame: starting the configured TTS service');
