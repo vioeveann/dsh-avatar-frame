@@ -1367,15 +1367,15 @@ window.__ModuleLoader__.load({
         const address = (endpoint || '').trim().replace(/\/+$/, '') || DEFAULT_ENDPOINT;
         const controller = new AbortController();
         let alive = true;
-        // Wait for typing to settle, so the address is not probed per keystroke.
-        const debounce = window.setTimeout(() => {
-          setState({ status: 'checking', model: null });
+        // 服务重启时第一次请求可能落在旧连接上，先重试一次再判定离线。
+        const probe = (attempt) => {
           const timer = window.setTimeout(() => controller.abort(), 4000);
           fetch(address + '/health', { signal: controller.signal })
             .then((response) => {
               if (!alive) return;
               if (!response.ok) {
-                setState({ status: 'offline', model: null });
+                if (attempt === 0) window.setTimeout(() => probe(1), 700);
+                else setState({ status: 'offline', model: null });
                 return;
               }
               return response
@@ -1388,11 +1388,18 @@ window.__ModuleLoader__.load({
                 });
             })
             .catch(() => {
-              if (alive) setState({ status: 'offline', model: null });
+              if (!alive) return;
+              if (attempt === 0) window.setTimeout(() => probe(1), 700);
+              else setState({ status: 'offline', model: null });
             })
             .finally(() => {
               window.clearTimeout(timer);
             });
+        };
+        // Wait for typing to settle, so the address is not probed per keystroke.
+        const debounce = window.setTimeout(() => {
+          setState({ status: 'checking', model: null });
+          probe(0);
         }, 350);
         return () => {
           alive = false;

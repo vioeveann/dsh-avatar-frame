@@ -111,6 +111,8 @@ POST /tts
 
 同一个浏览器的多个窗口之间会同步。换电脑、清缓存会丢，插件没有云同步。
 
+![插件详情页](docs/images/bundle.png)
+
 ## 已知限制
 
 - **只支持 Web 平台的 DeepSeek Harness**；
