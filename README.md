@@ -92,8 +92,6 @@ POST /tts
 
 `tone` 是建议值，服务端不认识就忽略；`speed` 范围 0.7–1.3。
 
-![播放控制条](docs/images/bar.png)
-
 ## 设置与数据
 
 入口：**设置 → 角色头像**。所有设置都存在本机浏览器的 `localStorage`：
@@ -111,7 +109,7 @@ POST /tts
 
 同一个浏览器的多个窗口之间会同步。换电脑、清缓存会丢，插件没有云同步。
 
-![设置页](docs/images/settings.png)
+![插件详情页](docs/images/bundle.png)
 
 ## 已知限制
 
