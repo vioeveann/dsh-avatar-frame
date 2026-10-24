@@ -172,12 +172,14 @@ POST /tts
 ├── README.md
 ├── CHANGELOG.md
 ├── LICENSE
-├── docs/                 # 接口契约、截图
+├── docs/                 # 接口契约、截图、发布步骤
 └── examples/simple_tts.py
 ```
 
 `client.js` 是单文件、无构建、无依赖（除 React 由宿主提供）：改完刷新界面即可生效。
 `index.js` 只在 DSH 启动时加载：改动它需要重启 DSH。
+
+发布新版本的流程见 [docs/releasing.md](docs/releasing.md)。
 
 ## 许可
 

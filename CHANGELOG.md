@@ -2,6 +2,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.10.7] - 2026-10-25
+
+### 文档
+
+- 新增 [docs/releasing.md](docs/releasing.md)：版本号约定、发布步骤、收尾检查，
+  以及这次发布踩过的坑（网络、凭据、GitHub 网页的自动化限制）。
+
 ## [0.10.6] - 2026-10-25
 
 ### 修复
