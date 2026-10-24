@@ -1,9 +1,9 @@
 {
   "name": "dsh-avatar-frame",
-  "version": "0.9.13",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
-  "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own local TTS service, with tone and speed controls, presets, and a playback bar.",
+  "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own local TTS service, with tone and speed controls, presets, a playback bar, and one-click launching of your own TTS process.",
   "license": "MIT",
   "author": "vioeveann",
   "homepage": "https://github.com/vioeveann/dsh-avatar-frame#readme",

@@ -96,7 +96,27 @@ window.__ModuleLoader__.load({
       'section.title': '角色头像',
       'section.avatar': '头像与标识',
       'section.speech': '朗读',
+      'section.service': '语音服务',
       'section.diagnostics': '诊断',
+      'service.title': '服务进程',
+      'service.running': '运行中',
+      'service.stopped': '未运行',
+      'service.external': '端口上已有服务（非本插件启动）',
+      'service.start': '启动服务',
+      'service.stop': '停止服务',
+      'service.autostart': '随 DSH 启动',
+      'service.configure': '启动配置',
+      'service.command': '启动命令',
+      'service.commandPlaceholder': '例如 "C:\\Python\\python.exe" server.py',
+      'service.cwd': '工作目录',
+      'service.cwdPlaceholder': '服务所在目录，留空则用用户主目录',
+      'service.env': '环境变量（每行 KEY=VALUE）',
+      'service.save': '保存配置',
+      'service.savedDone': '配置已保存',
+      'service.startDone': '已发出启动命令，稍等几秒再看连接状态',
+      'service.stopDone': '已停止',
+      'service.failed': '操作失败',
+      'service.unavailable': '宿主端未加载：重启一次 DSH 后这里才可用。',
       'diag.service': '服务',
       'diag.latency': '上句生成耗时',
       'diag.progress': '播放进度',
@@ -169,7 +189,27 @@ window.__ModuleLoader__.load({
       'section.title': 'Character avatar',
       'section.avatar': 'Avatar and ID',
       'section.speech': 'Read aloud',
+      'section.service': 'Speech service',
       'section.diagnostics': 'Diagnostics',
+      'service.title': 'Service process',
+      'service.running': 'Running',
+      'service.stopped': 'Stopped',
+      'service.external': 'A service is already listening (started outside the plugin)',
+      'service.start': 'Start service',
+      'service.stop': 'Stop service',
+      'service.autostart': 'Start with DSH',
+      'service.configure': 'Launch settings',
+      'service.command': 'Command',
+      'service.commandPlaceholder': 'e.g. "C:\\Python\\python.exe" server.py',
+      'service.cwd': 'Working directory',
+      'service.cwdPlaceholder': 'Leave empty for the home directory',
+      'service.env': 'Environment (KEY=VALUE per line)',
+      'service.save': 'Save settings',
+      'service.savedDone': 'Settings saved',
+      'service.startDone': 'Start requested — check the connection dot in a few seconds',
+      'service.stopDone': 'Stopped',
+      'service.failed': 'The action failed',
+      'service.unavailable': 'Host half not loaded: restart DSH once to enable this.',
       'diag.service': 'Service',
       'diag.latency': 'Last synthesis',
       'diag.progress': 'Progress',
@@ -239,6 +279,8 @@ window.__ModuleLoader__.load({
     let translate = (key) => key;
     const dialogStore = createStore({ open: false, mode: 'idle', draft: null });
     const statsStore = createStore({ lastMs: null });
+    /** 计数器：每次 +1 让健康检查重新探一次（启动服务后立刻刷新状态）。 */
+    const probeStore = createStore({ tick: 0 });
     const speechStore = createStore({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: DEFAULT_RATE, error: null, engine: null });
 
     function persist(key, value) {
@@ -1365,6 +1407,7 @@ window.__ModuleLoader__.load({
     /** Live reachability of the user's own service, so a blank voice is explainable. */
     function useCloneStatus(endpoint) {
       const [state, setState] = React.useState({ status: 'checking', model: null });
+      const tick = React.useSyncExternalStore(probeStore.subscribe, probeStore.get, probeStore.get).tick;
       React.useEffect(() => {
         const address = (endpoint || '').trim().replace(/\/+$/, '') || DEFAULT_ENDPOINT;
         let alive = true;
@@ -1423,8 +1466,13 @@ window.__ModuleLoader__.load({
           if (retryTimer !== null) window.clearTimeout(retryTimer);
           if (controller !== null) controller.abort();
         };
-      }, [endpoint]);
+      }, [endpoint, tick]);
       return state;
+    }
+
+    /** 让健康检查立刻再探一次。 */
+    function recheckService() {
+      probeStore.set({ tick: probeStore.get().tick + 1 });
     }
 
     function EndpointField({ t }) {
@@ -2034,6 +2082,215 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /* --------------------------------------------------------- service 启动 */
+
+    const SERVICE_ROUTE = '/dsh-avatar-frame/service';
+
+    /** 调用宿主端的服务管理路由；宿主没加载时抛出可读错误。 */
+    async function serviceCall(method, payload) {
+      const response = await fetch(SERVICE_ROUTE, {
+        method,
+        headers: payload === undefined ? undefined : { 'Content-Type': 'application/json' },
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+      });
+      const text = await response.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
+      if (data === null) throw new Error(`host half not loaded (HTTP ${response.status})`);
+      return data;
+    }
+
+    const EMPTY_SERVICE_CONFIG = { command: '', cwd: '', env: '', autostart: false };
+
+    /** 语音服务：手动启动/停止、随 DSH 启动、启动命令配置。 */
+    function ServiceControl({ t, online }) {
+      const [ready, setReady] = React.useState(false);
+      const [available, setAvailable] = React.useState(true);
+      const [running, setRunning] = React.useState(false);
+      const [config, setConfig] = React.useState(EMPTY_SERVICE_CONFIG);
+      const [draft, setDraft] = React.useState({ command: '', cwd: '', env: '' });
+      const [busy, setBusy] = React.useState('');
+      const [message, setMessage] = React.useState(null);
+
+      const adopt = (data) => {
+        if (data === null || typeof data !== 'object') return;
+        if (data.state !== undefined) adopt(data.state);
+        const next = data.config || EMPTY_SERVICE_CONFIG;
+        setRunning(data.running === true);
+        setConfig({
+          command: typeof next.command === 'string' ? next.command : '',
+          cwd: typeof next.cwd === 'string' ? next.cwd : '',
+          env: typeof next.env === 'string' ? next.env : '',
+          autostart: next.autostart === true,
+        });
+      };
+
+      const load = () => {
+        serviceCall('GET')
+          .then((data) => {
+            setAvailable(true);
+            adopt(data);
+            setDraft({
+              command: typeof data.config?.command === 'string' ? data.config.command : '',
+              cwd: typeof data.config?.cwd === 'string' ? data.config.cwd : '',
+              env: typeof data.config?.env === 'string' ? data.config.env : '',
+            });
+            setMessage(null);
+          })
+          .catch((error) => {
+            setAvailable(false);
+            setMessage(String(error && error.message ? error.message : error));
+          })
+          .finally(() => setReady(true));
+      };
+
+      React.useEffect(load, []);
+
+      const act = (action, payload) => {
+        setBusy(action);
+        serviceCall('POST', { action, ...(payload || {}) })
+          .then((data) => {
+            setAvailable(true);
+            adopt(data);
+            if (data.ok === false) {
+              setMessage(data.error || t('service.failed'));
+            } else {
+              setMessage(t('service.' + action + 'Done'));
+            }
+            if (action === 'start') window.setTimeout(recheckService, 1500);
+            if (action === 'stop') window.setTimeout(recheckService, 300);
+          })
+          .catch((error) => {
+            setAvailable(false);
+            setMessage(String(error && error.message ? error.message : error));
+          })
+          .finally(() => setBusy(''));
+      };
+
+      if (!ready) {
+        return h('div', { className: 'dsav-service' }, h('div', { className: 'dsav-sectionTitle' }, t('service.title')));
+      }
+      if (!available) {
+        return h(
+          'div',
+          { className: 'dsav-service' },
+          h('div', { className: 'dsav-sectionTitle' }, t('service.title')),
+          h('div', { className: 'dsav-endpointHint' }, t('service.unavailable')),
+        );
+      }
+
+      return h(
+        'div',
+        { className: 'dsav-service' },
+        h('div', { className: 'dsav-sectionTitle' }, t('service.title')),
+        h(
+          'div',
+          { className: 'dsav-serviceRow' },
+          h(
+            'span',
+            { className: 'dsav-state ' + (running || online ? 'dsav-state-online' : 'dsav-state-offline') },
+            h('span', { className: 'dsav-dot' }),
+            running ? t('service.running') : online ? t('service.external') : t('service.stopped'),
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsav-btn',
+              disabled: busy !== '' || running || online,
+              onClick: () => act('start'),
+            },
+            t('service.start'),
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dsav-btn',
+              disabled: busy !== '' || !running,
+              onClick: () => act('stop'),
+            },
+            t('service.stop'),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dsav-toggleRow' },
+          h('span', { className: 'dsav-toggleLabel' }, t('service.autostart')),
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'switch',
+              'aria-checked': config.autostart ? 'true' : 'false',
+              'aria-label': t('service.autostart'),
+              className: 'dsav-switch' + (config.autostart ? ' dsav-switchOn' : ''),
+              onClick: () => act('save', { autostart: !config.autostart }),
+            },
+            h('span', { className: 'dsav-switchDot' }),
+          ),
+        ),
+        h(
+          'details',
+          { className: 'dsav-serviceConfig' },
+          h('summary', null, t('service.configure')),
+          h(
+            'div',
+            { className: 'dsav-serviceField' },
+            h('span', { className: 'dsav-toggleLabel' }, t('service.command')),
+            h('input', {
+              className: 'dsav-input',
+              type: 'text',
+              spellCheck: false,
+              value: draft.command,
+              placeholder: t('service.commandPlaceholder'),
+              onChange: (event) => setDraft({ ...draft, command: event.target.value }),
+            }),
+          ),
+          h(
+            'div',
+            { className: 'dsav-serviceField' },
+            h('span', { className: 'dsav-toggleLabel' }, t('service.cwd')),
+            h('input', {
+              className: 'dsav-input',
+              type: 'text',
+              spellCheck: false,
+              value: draft.cwd,
+              placeholder: t('service.cwdPlaceholder'),
+              onChange: (event) => setDraft({ ...draft, cwd: event.target.value }),
+            }),
+          ),
+          h(
+            'div',
+            { className: 'dsav-serviceField' },
+            h('span', { className: 'dsav-toggleLabel' }, t('service.env')),
+            h('textarea', {
+              className: 'dsav-input dsav-serviceEnv',
+              spellCheck: false,
+              rows: 3,
+              value: draft.env,
+              placeholder: 'KEY=VALUE',
+              onChange: (event) => setDraft({ ...draft, env: event.target.value }),
+            }),
+          ),
+          h(
+            'div',
+            { className: 'dsav-serviceRow' },
+            h(
+              'button',
+              { type: 'button', className: 'dsav-btn dsav-btnPrimary', disabled: busy !== '', onClick: () => act('save', draft) },
+              t('service.save'),
+            ),
+          ),
+        ),
+        message === null ? null : h('div', { className: 'dsav-endpointHint' }, message),
+      );
+    }
+
     /** 设置页：把分散的入口集中到一页。 */
     function SettingsSection({ t }) {
       const avatar = useAvatar();
@@ -2093,6 +2350,8 @@ window.__ModuleLoader__.load({
               ),
             )
           : null,
+        h('div', { className: 'dsav-sectionTitle' }, t('section.service')),
+        h(ServiceControl, { t, online: status.status === 'online' }),
         h('div', { className: 'dsav-sectionTitle' }, t('section.diagnostics')),
         h(
           'div',
@@ -2238,6 +2497,12 @@ window.__ModuleLoader__.load({
 .dsav-audition{white-space:nowrap}
 .dsav-diagnostics{display:flex;flex-direction:column;gap:2px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}
 .dsav-diagError{color:var(--dsw-alias-state-error-primary)}
+.dsav-service{display:flex;flex-direction:column;gap:8px}
+.dsav-serviceRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dsav-serviceConfig{display:flex;flex-direction:column;gap:8px;font-size:12px}
+.dsav-serviceConfig summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}
+.dsav-serviceField{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.dsav-serviceEnv{min-height:64px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:18px}
 @media (prefers-reduced-motion: reduce){.dsav-frame,.dsav-process,.dsav-chevron{transition:none}}
 `;
 
