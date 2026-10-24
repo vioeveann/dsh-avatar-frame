@@ -1,0 +1,24 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 依赖与构建产物（本插件无构建步骤，列出以防万一）
+node_modules/
+dist/
+*.tgz
+
+# 本地运行产物
+*.log
+*.tmp
+.cache/
+exports/
+
+# 语音素材：参考音频、训练产物一律不入库
+*.wav
+*.mp3
+*.flac
+*.ckpt
+*.pth

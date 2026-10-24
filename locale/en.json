@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Character avatar",
+    "description": "Shows a character avatar and an editable ID beside every assistant reply, with saved avatar + ID presets you can switch between on this device. Any reply can be read aloud with the system voice or your own local TTS service (tone and speed adjustable), with a control bar for pause and sentence skipping."
+  }
+}

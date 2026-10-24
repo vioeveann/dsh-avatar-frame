@@ -1,0 +1,10 @@
+# 统一换行符，避免 Windows 与 macOS 之间的无意义 diff
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.wav binary
+*.mp3 binary

@@ -1,0 +1,53 @@
+{
+  "name": "dsh-avatar-frame",
+  "version": "0.9.7",
+  "private": true,
+  "type": "module",
+  "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own local TTS service, with tone and speed controls, presets, and a playback bar.",
+  "license": "MIT",
+  "author": "vioeveann",
+  "homepage": "https://github.com/vioeveann/dsh-avatar-frame#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vioeveann/dsh-avatar-frame.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vioeveann/dsh-avatar-frame/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "avatar",
+    "tts",
+    "text-to-speech",
+    "read-aloud"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  }
+}
