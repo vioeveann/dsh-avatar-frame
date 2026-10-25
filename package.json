@@ -1,7 +1,6 @@
 {
   "name": "dsh-avatar-frame",
   "version": "0.11.2",
-  "private": true,
   "type": "module",
   "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own local TTS service, with tone and speed controls, presets, a playback bar, one-click launching of your own TTS process, and a Chinese/English UI switch.",
   "license": "MIT",
@@ -18,10 +17,10 @@
     "deepseek-harness",
     "dsh",
     "dsh-plugin",
-    "avatar",
     "tts",
     "text-to-speech",
-    "read-aloud"
+    "avatar",
+    "tts-client"
   ],
   "exports": {
     ".": "./index.js",
@@ -34,7 +33,12 @@
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/tts-contract.md",
+    "examples/simple_tts.py"
   ],
   "dsh": {
     "bundle": {
@@ -49,5 +53,8 @@
         "@deepseek-ai/dsh-client-ui-settings"
       ]
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
