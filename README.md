@@ -44,7 +44,7 @@
 ### 安装
 
 1. 打开 DeepSeek Harness → **插件 → 添加插件** → 输入本插件的 **包名**（`dsh-avatar-frame`，从 npm 拉取，最省事）、**GitHub 仓库地址**（`https://github.com/vioeveann/dsh-avatar-frame`）或**本地目录路径**；
-2. 重启一次 DSH（「启动服务」那块跑在宿主端，只在启动时加载；界面部分刷新一下就行）。
+2. **重启一次 DSH**（必须）。安装、升级后都算：插件的前端模块和服务启动都在 DSH 启动时加载，只刷新页面往往不够，会出现「装上了、显示运行中，但聊天区没变化」。
 
 包名已发布到 npm：[`dsh-avatar-frame`](https://www.npmjs.com/package/dsh-avatar-frame)（国内可走 `registry.npmmirror.com` 镜像）。
 
@@ -150,7 +150,7 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 - 头像只在**一轮结束后**出现，流式输出过程中没有——那需要接管整个回答渲染器，代价太大；
 - 与**同样接管 `turn-process`** 的其他插件会冲突；
 - 朗读按句切分，某一句失败会跳过继续读；
-- 「一键启动服务」的宿主端代码在 DSH 启动时加载，**升级插件后要重启一次 DSH**；
+- 插件的前端模块与「一键启动服务」的宿主端代码都在 **DSH 启动时**加载：**安装或升级后必须重启 DSH**，只刷新页面可能没反应；
 - 该功能会**按你填写的命令执行本机程序**，请只填你自己的服务；路由走本机同源请求，没有额外鉴权，别把 DSH 暴露到公网；
 - 英文界面下「试听一句」会读英文例句，中文音色念英文可能带口音——那是模型的能力边界。
 
@@ -215,7 +215,7 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 ### Install
 
 1. Open DeepSeek Harness → **Plugins → Add plugin** → enter this plugin's **package name** (`dsh-avatar-frame`), its **GitHub URL** (`https://github.com/vioeveann/dsh-avatar-frame`), or a **local directory path**;
-2. Restart DSH once (the service launcher runs on the host side and is only loaded at startup; the UI part just needs a refresh).
+2. **Restart DSH** (required). This applies to installs and upgrades alike: both the client module and the service launcher load at DSH startup, and a page refresh alone is usually not enough — otherwise you get "installed and running, but the chat row looks unchanged".
 
 The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/package/dsh-avatar-frame) — installing by that name is the simplest route.
 
