@@ -51,7 +51,7 @@
 **装不上怎么办**
 
 - 用 **GitHub 地址**安装走的是 `git`，机器连不上 github.com 就会报 `ERR_PNPM_GIT_RESOLVE_FAILED`。先验证：`git ls-remote https://github.com/vioeveann/dsh-avatar-frame`；不通就配代理，或在 `hosts` 里给 `github.com` 指定一个可用 IP；
-- 完全绕开 `git`：GitHub 页面 → `Code` → **Download ZIP** → 解压 → 添加插件时填**解压后的本地目录**；
+- 完全绕开 `git` 和 npm：直接下载 [v0.11.5 源码 zip](https://github.com/vioeveann/dsh-avatar-frame/releases/latest) → 解压 → 添加插件时填**解压后的本地目录**（也可以走 `Code` → **Download ZIP**）；
 - 用**包名**安装若提示找不到，先 `npm config get registry` 确认走的是官方源。
 
 ![插件详情页](docs/images/bundle.png)
@@ -222,7 +222,7 @@ The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/pa
 **If installation fails**
 
 - Installing from a **GitHub URL** goes through `git`; if your machine can't reach github.com it fails with `ERR_PNPM_GIT_RESOLVE_FAILED`. Check with `git ls-remote https://github.com/vioeveann/dsh-avatar-frame`, then use a proxy or point `github.com` at a reachable IP in your hosts file;
-- To bypass `git` entirely: `Code` → **Download ZIP**, unzip it, and point "Add plugin" at the unzipped **local directory**;
+- To bypass `git` and npm entirely: download the [source zip from the latest release](https://github.com/vioeveann/dsh-avatar-frame/releases/latest), unzip it, and point "Add plugin" at the unzipped **local directory** (the `Code` → **Download ZIP** route works too);
 - If the **package name** isn't found, check `npm config get registry` — it must be the official registry.
 
 ![Plugin page, English UI](docs/images/bundle-en.png)
