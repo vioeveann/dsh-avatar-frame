@@ -2,6 +2,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.11.3] - 2026-10-25
+
+### 发布
+
+- 首次发布到 npm：`dsh-avatar-frame`，此后可以用包名安装（`plugins → add plugin`）。
+- README 安装章节补充「装不上怎么办」（git 连不上 GitHub / 改用 ZIP / npm 源）。
+
 ## [0.11.2] - 2026-10-25
 
 ### 文档

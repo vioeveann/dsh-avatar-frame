@@ -43,8 +43,16 @@
 
 ### 安装
 
-1. 打开 DeepSeek Harness → **插件 → 添加插件** → 输入本插件的 **包名**（`dsh-avatar-frame`）、**GitHub 仓库地址**（`https://github.com/vioeveann/dsh-avatar-frame`）或**本地目录路径**；
+1. 打开 DeepSeek Harness → **插件 → 添加插件** → 输入本插件的 **包名**（`dsh-avatar-frame`，从 npm 拉取，最省事）、**GitHub 仓库地址**（`https://github.com/vioeveann/dsh-avatar-frame`）或**本地目录路径**；
 2. 重启一次 DSH（「启动服务」那块跑在宿主端，只在启动时加载；界面部分刷新一下就行）。
+
+包名已发布到 npm：[`dsh-avatar-frame`](https://www.npmjs.com/package/dsh-avatar-frame)（国内可走 `registry.npmmirror.com` 镜像）。
+
+**装不上怎么办**
+
+- 用 **GitHub 地址**安装走的是 `git`，机器连不上 github.com 就会报 `ERR_PNPM_GIT_RESOLVE_FAILED`。先验证：`git ls-remote https://github.com/vioeveann/dsh-avatar-frame`；不通就配代理，或在 `hosts` 里给 `github.com` 指定一个可用 IP；
+- 完全绕开 `git`：GitHub 页面 → `Code` → **Download ZIP** → 解压 → 添加插件时填**解压后的本地目录**；
+- 用**包名**安装若提示找不到，先 `npm config get registry` 确认走的是官方源。
 
 ![插件详情页](docs/images/bundle.png)
 
@@ -208,6 +216,14 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 
 1. Open DeepSeek Harness → **Plugins → Add plugin** → enter this plugin's **package name** (`dsh-avatar-frame`), its **GitHub URL** (`https://github.com/vioeveann/dsh-avatar-frame`), or a **local directory path**;
 2. Restart DSH once (the service launcher runs on the host side and is only loaded at startup; the UI part just needs a refresh).
+
+The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/package/dsh-avatar-frame) — installing by that name is the simplest route.
+
+**If installation fails**
+
+- Installing from a **GitHub URL** goes through `git`; if your machine can't reach github.com it fails with `ERR_PNPM_GIT_RESOLVE_FAILED`. Check with `git ls-remote https://github.com/vioeveann/dsh-avatar-frame`, then use a proxy or point `github.com` at a reachable IP in your hosts file;
+- To bypass `git` entirely: `Code` → **Download ZIP**, unzip it, and point "Add plugin" at the unzipped **local directory**;
+- If the **package name** isn't found, check `npm config get registry` — it must be the official registry.
 
 ![Plugin page](docs/images/bundle.png)
 
