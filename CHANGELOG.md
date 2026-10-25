@@ -2,6 +2,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.11.5] - 2026-10-25
+
+### 文档
+
+- README 英文部分改用英文界面截图（`docs/images/*-en.png`）。
+- 本次发布同时提供源码 zip，供不适用 git / npm 的环境直接解压安装。
+
 ## [0.11.4] - 2026-10-25
 
 ### 文档
