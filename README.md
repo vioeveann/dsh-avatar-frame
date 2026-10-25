@@ -130,6 +130,17 @@ POST /tts
 
 `tone` 是建议值，服务端不认识就忽略；`speed` 范围 0.7–1.3。
 
+### 启动失败时先看这一条
+
+设置页的「启动配置」下面会显示进程退出前的输出。如果看到：
+
+```
+PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了一个访问套接字的尝试
+```
+
+说明端口被 **Windows 的保留端口段**占住了（Hyper-V / WinNAT 会在重启后划走若干段，用
+`netsh interface ipv4 show excludedportrange protocol=tcp` 可以查看）。这不是代码问题：**换一个不在保留段里的端口**（例如 18124）即可，服务端和插件的地址一起改。
+
 ## 设置与数据
 
 入口：**设置 → 角色头像**。所有设置都存在本机浏览器的 `localStorage`：

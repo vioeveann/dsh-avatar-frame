@@ -193,19 +193,40 @@ function setup(ctx) {
 
     const collectedText = (stream) => {
       try {
+        if (stream === undefined || stream === null || typeof stream.readFrom !== 'function') return '';
         const read = stream.readFrom(0);
         return typeof read?.text === 'string' ? read.text : '';
       } catch {
         return '';
       }
     };
-    const finish = (spawned, exitCode, signal) => {
-      const output = stopRequested
-        ? ''
-        : (collectedText(spawned.stderr) + collectedText(spawned.stdout)).trim().slice(-1600);
+
+    /**
+     * 进程退出后立刻读输出常常读到空串：`done` 先于收集器把最后一段写进缓冲区。
+     * 这里轮询几百毫秒，拿到为止。
+     */
+    const readOutput = async (spawned) => {
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const text = (collectedText(spawned.stderr) + collectedText(spawned.stdout)).trim();
+        if (text !== '') return text.slice(-1600);
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+      return '';
+    };
+
+    const finish = async (spawned, exitCode, signal) => {
+      if (handle === spawned) {
+        handle = null;
+        startedAt = null;
+      }
+      const raw = stopRequested ? '' : await readOutput(spawned);
       stopRequested = false;
-      handle = null;
-      startedAt = null;
+      const output =
+        raw !== ''
+          ? raw
+          : exitCode === null || exitCode === 0
+            ? ''
+            : `进程已退出（exit code ${exitCode}），没有捕获到任何输出。常见原因：端口被系统占用或保留、命令或工作目录写错、依赖缺失。`;
       lastExit = { exitCode, signal, at: Date.now(), output };
       if (scriptFile !== null) {
         try {
@@ -229,11 +250,11 @@ function setup(ctx) {
       spawned.done.then(
         (outcome) => {
           if (handle !== spawned) return;
-          finish(spawned, outcome.exitCode, outcome.signal);
+          void finish(spawned, outcome.exitCode, outcome.signal);
         },
         () => {
           if (handle !== spawned) return;
-          finish(spawned, null, null);
+          void finish(spawned, null, null);
         },
       );
       return { ok: true };
