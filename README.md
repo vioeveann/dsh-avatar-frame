@@ -225,7 +225,7 @@ The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/pa
 - To bypass `git` entirely: `Code` → **Download ZIP**, unzip it, and point "Add plugin" at the unzipped **local directory**;
 - If the **package name** isn't found, check `npm config get registry` — it must be the official registry.
 
-![Plugin page](docs/images/bundle.png)
+![Plugin page, English UI](docs/images/bundle-en.png)
 
 ### Usage
 
@@ -234,6 +234,8 @@ The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/pa
 3. Type the ID and pick a text size;
 4. Optionally save the combination as a preset (up to 8);
 5. Turn on "Read aloud" and click the speaker next to a reply.
+
+![Settings panel, English UI](docs/images/panel-en.png)
 
 ### Speech service
 
@@ -261,6 +263,8 @@ The command is yours: the plugin does not ship a service, it only executes and s
 ### Settings and data
 
 Settings → **Character avatar**. Every key lives in this browser's `localStorage`: `image`, `id`, `size`, `presets`, `speech`, `engine`, `endpoint`, `rate`, `tone`, `lang` — all under the `dsh-avatar-frame/…/v1` prefix. Windows of the same browser stay in sync; clearing site data resets it, and there is no cloud sync.
+
+![Settings → Character avatar, English UI](docs/images/settings-en.png)
 
 ### Known limitations
 
