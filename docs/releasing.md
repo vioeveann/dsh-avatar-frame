@@ -59,17 +59,40 @@ git push --tags
 ## 6. 发 Release
 
 1. 打开 https://github.com/vioeveann/dsh-avatar-frame/releases/new
-2. Tag 选刚才推上去的那个（v0.10.7）
-3. 标题：`v0.10.7 · 一句话主题`
+2. Tag 选刚才推上去的那个
+3. 标题：`vX.Y.Z · 一句话主题`
 4. 正文：从 CHANGELOG 那一节改写，保持"功能 / 安装 / 说明"的结构
 5. **Publish release**（不要留在 draft）
 
 发布后仓库首页的 Releases 区块会自动更新。
 
-## 7. 收尾检查
+## 7. 发布到 npm
+
+插件同时也发布在 npm 上，装的人可以直接填包名。
+
+```bash
+npm login            # 或者用开了 Bypass 2FA 的 granular token
+npm publish
+```
+
+- 版本号必须与 `package.json` 一致，且**不能重复发布**同一个版本；
+- 账号如果没开 2FA，npm 只接受**勾了「Bypass two-factor authentication (2FA)」的 granular token**（tokens 页面 → Generate New Token）；普通 granular token 会报 403；
+- 发布后验证：
+
+```bash
+npm view dsh-avatar-frame version
+npm install dsh-avatar-frame --cache /tmp/empty-cache   # 用空缓存验证，避免读到本地旧缓存
+```
+
+- 中国用户走 `registry.npmmirror.com` 镜像，通常几分钟内同步。
+
+> 已知残留：首次发布时 npm 在 `versions` 里留下过一个 `0.0.0-stage` 占位版本（staged publishing 机制产生）。它不参与 `latest` 标签，不影响安装；要清掉需要能通过 2FA 的会话。
+
+## 8. 收尾检查
 
 - [ ] 仓库首页的 README 图片正常显示
 - [ ] Releases 里能看到新版本
+- [ ] `npm view dsh-avatar-frame version` 是新版本
 - [ ] 话题、描述没被误改
 - [ ] `git status` 干净，`main` 与 `origin/main` 同步
 

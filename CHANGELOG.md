@@ -2,6 +2,12 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.11.4] - 2026-10-25
+
+### 文档
+
+- `docs/releasing.md` 加入「发布到 npm」一步：版本号、Bypass 2FA 令牌、空缓存验证、镜像同步。
+
 ## [0.11.3] - 2026-10-25
 
 ### 发布
