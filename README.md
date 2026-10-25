@@ -1,12 +1,18 @@
 # 角色头像框 · dsh-avatar-frame
 
-> DeepSeek Harness 的界面插件：在每轮 AI 回复左侧显示角色头像和可编辑的 ID，并可以把回复**朗读**出来——用系统语音，或者调用你自己跑的本地 TTS 服务；也可以在设置里一键启动、停止那个服务进程。
+[中文](#中文) · [English](#english)
 
-An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voice model, **no** reference audio and **no** service: if you want a cloned voice, you run your own TTS endpoint and point the plugin at it (the plugin can launch that process for you).
+> DeepSeek Harness 的界面插件：在每轮 AI 回复左侧显示角色头像和可编辑的 ID，并可以把回复**朗读**出来——用系统语音，或者调用你自己跑的本地 TTS 服务；也可以在设置里一键启动、停止那个服务进程。
+>
+> 插件**不附带**任何语音模型、参考音频或服务；音色由你自己运行的服务提供，接口见 [docs/tts-contract.md](docs/tts-contract.md)。
 
 ![头像与 ID 在每轮回复左侧](docs/images/row.png)
 
-## 功能
+---
+
+## 中文
+
+### 功能
 
 **形象**
 
@@ -35,26 +41,14 @@ An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voic
 - **界面语言可切换**：中文 / English 两个按钮，放在插件详情页、设置 → 角色头像、点头像弹出的面板三处；选择只记在本机，刷新/重启后保持；
 - 所有数据只在本机 `localStorage`，不上传、不联网（除非你把服务地址指向远程）。
 
-## 安装
+### 安装
 
-### 从本地目录安装
-
-1. 把本仓库放到任意目录；
-2. 打开 DeepSeek Harness → 插件管理 → 安装外部 bundle，指向这个目录（含 `package.json` 与 `cordis.patch.yml`）；
-3. 打开一次界面；插件的前端模块在页面加载时注入，必要时刷新（Ctrl+R）；
-4. 「启动服务」那一块跑在宿主端，**首次安装、以及每次升级这个插件后，需要重启一次 DSH** 才生效。
-
-### 从 GitHub 安装
-
-```bash
-git clone https://github.com/vioeveann/dsh-avatar-frame.git
-```
-
-然后同上，把插件管理指向克隆下来的目录。
+1. 打开 DeepSeek Harness → **插件 → 添加插件** → 输入本插件的 **包名**（`dsh-avatar-frame`）、**GitHub 仓库地址**（`https://github.com/vioeveann/dsh-avatar-frame`）或**本地目录路径**；
+2. 重启一次 DSH（「启动服务」那块跑在宿主端，只在启动时加载；界面部分刷新一下就行）。
 
 ![插件详情页](docs/images/bundle.png)
 
-## 使用
+### 使用
 
 1. 点任意一轮回复左侧的**头像**，或「已完成」那一行的 **ID**，打开设置面板；
 2. 点「选择头像图片」上传图片，在裁切框里拖动、滚轮缩放，确定；
@@ -64,34 +58,26 @@ git clone https://github.com/vioeveann/dsh-avatar-frame.git
 
 ![设置面板](docs/images/panel.png)
 
-## 语音
+### 语音
 
 插件本身**不下载模型、不附带参考音频、不启动任何服务**。它只做两件事：用系统语音读，或者调用你给的 HTTP 服务。
 
-默认地址 `http://127.0.0.1:8123`，可在面板、插件详情页或设置页修改，旁边会显示「已连接 / 未连接」的实时状态。服务不可用时会自动退回系统语音。
+默认地址 `http://127.0.0.1:8123`，可在面板、插件详情页或设置页修改，旁边会显示「已连接 / 未连接」的实时状态。服务不可用时会自动退回系统语音，状态点**每 8 秒自动重试一次**，起好服务后不用刷新。
 
-状态点**每 8 秒自动重试一次**，所以先启动服务、再看那一点变绿即可，不用刷新界面。
-
-### 先用一个示例跑通
-
-仓库里带了一个最小实现，用微软 Edge 的在线语音，够你确认整条链路：
+**先用一个示例跑通**：仓库里带了一个最小实现，用微软 Edge 的在线语音：
 
 ```bash
 pip install edge-tts
 python examples/simple_tts.py          # 监听 127.0.0.1:8123
 ```
 
-然后把插件里的服务地址填成 `http://127.0.0.1:8123`，点小喇叭。想要自己的音色，把示例里的 `synthesize()` 换成你的引擎即可。
+然后把服务地址填成 `http://127.0.0.1:8123`，点小喇叭。想要自己的音色，把示例里的 `synthesize()` 换成你的引擎即可。
 
-### 一键启动服务（可选）
-
-插件的**宿主端**可以替你启动那个服务进程，入口有两处、内容一致：**设置 → 角色头像 → 语音服务**，以及**插件详情页**的同名区块。
+**一键启动服务（可选）**：插件的宿主端可以替你启动那个进程，入口两处——**设置 → 角色头像 → 语音服务**，以及**插件详情页**的同名区块。
 
 - 「启动服务 / 停止服务」：执行你填的那条命令；
 - 「随 DSH 启动」：DSH 启动时自动把它拉起来（不是开机自启）；
 - 「启动配置」里填：**启动命令**、**工作目录**、**环境变量**（每行 `KEY=VALUE`）。
-
-例如：
 
 ```
 启动命令   "F:\tts\python.exe" server.py
@@ -99,49 +85,37 @@ python examples/simple_tts.py          # 监听 127.0.0.1:8123
 环境变量   HF_HOME=F:\tts\hf-cache
 ```
 
-想直接用仓库里的示例服务试这个功能：
-
-```
-启动命令   python examples/simple_tts.py
-工作目录   <本仓库所在目录>
-```
+想直接用仓库里的示例服务试这个功能：`启动命令 = python examples/simple_tts.py`，`工作目录 = 本仓库所在目录`。
 
 几点要说清楚：
 
-- 命令是**你自己填的**，插件不附带任何服务；它只是替你执行、托管这个子进程。
-- 进程的生命周期跟随 DSH：DSH 退出时它会被一起收掉；「随 DSH 启动」只在 DSH 启动时执行一次。
-- 端口上已经有服务在跑时（比如你手动开的），插件会显示「端口上已有服务（非本插件启动）」，不会重复启动。
-- 宿主端代码在 DSH 启动时加载，所以**安装或升级插件后要重启一次 DSH**，这一块才可用；界面会提示「宿主端未加载」。
+- 命令是**你自己填的**，插件不附带任何服务；它只是替你执行、托管这个子进程；
+- 进程生命周期跟随 DSH：DSH 退出时它会被一起收掉；「随 DSH 启动」只在 DSH 启动时执行一次；
+- 端口上已经有服务在跑时（比如你手动开的），插件会显示「端口上已有服务（非本插件启动）」，不会重复启动；
+- 宿主端代码在 DSH 启动时加载，**安装或升级插件后要重启一次 DSH**，这一块才可用；界面会提示「宿主端未加载」。
 
-### 接口契约
-
-完整说明见 [docs/tts-contract.md](docs/tts-contract.md)。核心是三个请求：
+**接口契约**：完整说明见 [docs/tts-contract.md](docs/tts-contract.md)。
 
 ```
 GET  /health
   -> 200 {"ok": true, "model": "任意字符串"}
 
 POST /tts
-  {"text": "要读的文本", "speed": 1.05, "tone": "normal"}
-  -> 200，Content-Type 为音频（audio/wav、audio/mpeg 均可），body 为音频数据
+  {"text": 要读的文本, "speed": 1.05, "tone": "normal"}
+  -> 200，Content-Type 为音频（audio/wav、audio/mpeg 均可）
 ```
 
-另外需要允许 CORS（`Access-Control-Allow-Origin: *`，并响应 `OPTIONS` 预检），因为插件在网页里请求它。
+需要允许 CORS（`Access-Control-Allow-Origin: *` 并响应 `OPTIONS` 预检）。`tone` 是建议值，不认识就忽略；`speed` 范围 0.7–1.3。
 
-`tone` 是建议值，服务端不认识就忽略；`speed` 范围 0.7–1.3。
-
-### 启动失败时先看这一条
-
-设置页的「启动配置」下面会显示进程退出前的输出。如果看到：
+**启动失败时先看这一条**：设置页「启动配置」下面会显示进程退出前的输出。如果看到
 
 ```
 PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了一个访问套接字的尝试
 ```
 
-说明端口被 **Windows 的保留端口段**占住了（Hyper-V / WinNAT 会在重启后划走若干段，用
-`netsh interface ipv4 show excludedportrange protocol=tcp` 可以查看）。这不是代码问题：**换一个不在保留段里的端口**（例如 18124）即可，服务端和插件的地址一起改。
+说明端口被 **Windows 的保留端口段**占住了（Hyper-V / WinNAT 会在重启后划走若干段，用 `netsh interface ipv4 show excludedportrange protocol=tcp` 查看）。换一个不在保留段里的端口（例如 18124），服务端和插件地址一起改即可。
 
-## 设置与数据
+### 设置与数据
 
 入口：**设置 → 角色头像**。所有设置都存在本机浏览器的 `localStorage`：
 
@@ -161,17 +135,18 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 
 ![设置 → 角色头像](docs/images/settings.png)
 
-## 已知限制
+### 已知限制
 
 - **只支持 Web 平台的 DeepSeek Harness**；
-- 插件接管了「已完成，用时 …」这一行的渲染，用来把头像放进左侧留白。**停用或卸载插件后请刷新一次界面**，否则这一行会显示「未知 surface 事件：turn-process」；
+- 插件接管了「已完成，用时 …」这一行的渲染。**停用或卸载插件后请刷新一次界面**，否则这一行会显示「未知 surface 事件：turn-process」；
 - 头像只在**一轮结束后**出现，流式输出过程中没有——那需要接管整个回答渲染器，代价太大；
 - 与**同样接管 `turn-process`** 的其他插件会冲突；
-- 朗读是按句切分的，句子之间靠播放器衔接；如果某一句失败，会跳过该句继续读后面的；
+- 朗读按句切分，某一句失败会跳过继续读；
 - 「一键启动服务」的宿主端代码在 DSH 启动时加载，**升级插件后要重启一次 DSH**；
-- 该功能会**按你填写的命令执行本机程序**，请只填你自己的服务；路由走 DSH 本机同源请求，没有额外鉴权，别把 DSH 暴露到公网。
+- 该功能会**按你填写的命令执行本机程序**，请只填你自己的服务；路由走本机同源请求，没有额外鉴权，别把 DSH 暴露到公网；
+- 英文界面下「试听一句」会读英文例句，中文音色念英文可能带口音——那是模型的能力边界。
 
-## 目录结构
+### 目录结构
 
 ```
 .
@@ -188,13 +163,100 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 └── examples/simple_tts.py
 ```
 
-`client.js` 是单文件、无构建、无依赖（除 React 由宿主提供）：改完刷新界面即可生效。
-`index.js` 只在 DSH 启动时加载：改动它需要重启 DSH。
+`client.js` 无构建、无依赖（React 由宿主提供），改完刷新即可；`index.js` 只在 DSH 启动时加载。发布流程见 [docs/releasing.md](docs/releasing.md)。
 
-发布新版本的流程见 [docs/releasing.md](docs/releasing.md)。
+### 许可
 
-## 许可
+代码以 [MIT](LICENSE) 发布。插件**不包含**任何语音模型、参考音频或音色文件；你用到的模型、参考音频、第三方语音服务的许可与版权需自行确认，请勿把他人声音素材随本插件分发。
 
-代码以 [MIT](LICENSE) 发布。
+---
 
-插件**不包含**任何语音模型、参考音频或音色文件。你用到的模型、参考音频、第三方语音服务的许可与版权，需要你自行确认与遵守；请勿把他人声音素材随本插件分发。
+## English
+
+> An avatar frame and read-aloud plugin for **DeepSeek Harness**: a character portrait and an editable ID beside every assistant reply, with read-aloud through the system voice or **your own** local TTS service — the plugin can also start and stop that process for you.
+>
+> It ships **no** voice model, **no** reference audio and **no** service. Your voice comes from a service you run; the contract is in [docs/tts-contract.md](docs/tts-contract.md).
+
+### Features
+
+**The frame**
+
+- A round avatar in the gutter of every settled reply, with an editable ID aligned to the "Completed in …" row;
+- Upload an image, drag/zoom to crop, apply it to every turn;
+- ID text size adjustable (10–20px);
+- Up to 8 saved presets of "avatar + ID + size"; preset images are stored as compressed JPEG.
+
+**Read aloud**
+
+- Click the speaker next to the ID to read the reply's final answer only (not the thinking or collapsed tool steps);
+- Two engines: the system voice, or your own local service;
+- Playback bar beside the speaker: pause/resume, previous/next sentence, five speeds (0.95×–1.15×), stop;
+- Three tone presets (calm / natural / lively) sent to your service;
+- Preview the voice from the settings page without touching the chat;
+- Failure dot next to the speaker with the reason on hover;
+- Long replies are split by sentence and pre-generated two chunks ahead, so playback stays continuous.
+
+**The rest**
+
+- Settings → **Character avatar** holds everything: avatar, ID, size, presets, read-aloud, engine, tone, speed, endpoint, preview, diagnostics;
+- **Service process**: start/stop your own TTS process and optionally start it with DSH (available on both the settings page and the plugin page);
+- Diagnostics: service state and model name, last synthesis time, playback progress, last error;
+- **Chinese / English UI switch** on the plugin page, the settings page and the avatar popup; the choice is stored locally;
+- Everything is kept in this browser's `localStorage`; nothing is uploaded unless you point the endpoint at a remote host.
+
+### Install
+
+1. Open DeepSeek Harness → **Plugins → Add plugin** → enter this plugin's **package name** (`dsh-avatar-frame`), its **GitHub URL** (`https://github.com/vioeveann/dsh-avatar-frame`), or a **local directory path**;
+2. Restart DSH once (the service launcher runs on the host side and is only loaded at startup; the UI part just needs a refresh).
+
+![Plugin page](docs/images/bundle.png)
+
+### Usage
+
+1. Click the **avatar** left of any reply, or the **ID** in the "Completed in …" row, to open the panel;
+2. Choose an image, then drag and zoom in the crop stage;
+3. Type the ID and pick a text size;
+4. Optionally save the combination as a preset (up to 8);
+5. Turn on "Read aloud" and click the speaker next to a reply.
+
+### Speech service
+
+The plugin never downloads a model or bundles a voice. It either uses the system voice or calls an HTTP service you provide. The default address is `http://127.0.0.1:8123` and can be changed in the panel, the plugin page or the settings page; a status dot shows connected / not connected and **retries every 8 seconds**, so start the service and watch it turn green — no refresh needed.
+
+**Try it with the bundled example** (Microsoft Edge online voices):
+
+```bash
+pip install edge-tts
+python examples/simple_tts.py          # listens on 127.0.0.1:8123
+```
+
+Point the plugin at `http://127.0.0.1:8123` and click the speaker. To use your own voice, replace `synthesize()` in that file with your engine.
+
+**One-click service start (optional).** The host half can launch the process for you; the same block exists in **Settings → Character avatar → Speech service** and on the plugin page:
+
+- Start / Stop service — runs the command you configure;
+- Start with DSH — launches it once at DSH startup (not an OS autostart);
+- Launch settings — the command, the working directory, and `KEY=VALUE` environment lines.
+
+The command is yours: the plugin does not ship a service, it only executes and supervises that child process. Its lifetime follows DSH, and if something is already listening the plugin says so instead of starting a second copy.
+
+**Contract**: `GET /health` → `{"ok": true, "model": "..."}`; `POST /tts` with `{"text", "speed", "tone"}` → audio (`audio/wav` or `audio/mpeg`). CORS with an `OPTIONS` preflight is required. Full details: [docs/tts-contract.md](docs/tts-contract.md).
+
+### Settings and data
+
+Settings → **Character avatar**. Every key lives in this browser's `localStorage`: `image`, `id`, `size`, `presets`, `speech`, `engine`, `endpoint`, `rate`, `tone`, `lang` — all under the `dsh-avatar-frame/…/v1` prefix. Windows of the same browser stay in sync; clearing site data resets it, and there is no cloud sync.
+
+### Known limitations
+
+- **Web platform only**;
+- The plugin replaces the renderer for the "Completed in …" row, which is how the avatar fits in the left gutter — **refresh once after disabling or uninstalling it**, otherwise that row shows "unknown surface event: turn-process";
+- The avatar appears only after a turn finishes; streaming turns have none (that would require replacing the whole answer renderer);
+- Conflicts with other plugins that also replace `turn-process`;
+- Read-aloud is split by sentence; a failed sentence is skipped;
+- The service launcher's host code loads at DSH startup, so **restart DSH after upgrading the plugin**;
+- That feature **runs local programs with the command you type** — only point it at your own service; the route is same-origin on your machine and has no extra auth, so don't expose DSH to the internet;
+- In the English UI the preview reads an English sentence; a Chinese-trained voice will carry an accent — that is the model, not the plugin.
+
+### License
+
+[MIT](LICENSE). The repository contains no voice model, reference audio or voice data; licenses for the models, audio and services you use are your responsibility.
