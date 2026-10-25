@@ -175,7 +175,7 @@ window.__ModuleLoader__.load({
       'speech.rate': 'Speed',
       'audition.label': 'Preview',
       'audition.stopHint': 'Reading…',
-      'audition.text': '程序启动，访问人，用户，你好！',
+      'audition.text': 'Program initializing. Accessor: user.',
       'bar.label': 'Read-aloud controls',
       'bar.pause': 'Pause',
       'bar.resume': 'Resume',

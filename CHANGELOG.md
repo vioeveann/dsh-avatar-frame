@@ -2,6 +2,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.11.1] - 2026-10-25
+
+### 变更
+
+- 英文界面下「试听一句」改用英文例句：「Program initializing. Accessor: user.」
+  （中文界面仍是「程序启动，访问人，用户，你好！」）。
+
 ## [0.11.0] - 2026-10-25
 
 ### 新增
