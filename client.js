@@ -92,6 +92,8 @@ window.__ModuleLoader__.load({
       'bar.stop': '停止朗读',
       'section.title': '角色头像',
       'section.avatar': '头像与标识',
+      'lang.label': '界面语言',
+      'service.exitHint': '进程已退出，没有捕获到输出。常见原因：端口被系统占用或保留、命令或工作目录写错、依赖缺失。',
       'section.speech': '朗读',
       'section.service': '语音服务',
       'section.diagnostics': '诊断',
@@ -182,6 +184,8 @@ window.__ModuleLoader__.load({
       'bar.stop': 'Stop reading',
       'section.title': 'Character avatar',
       'section.avatar': 'Avatar and ID',
+      'lang.label': 'Language',
+      'service.exitHint': 'The process exited without producing output. Common causes: the port is taken or reserved by the system, a wrong command or working directory, or a missing dependency.',
       'section.speech': 'Read aloud',
       'section.service': 'Speech service',
       'section.diagnostics': 'Diagnostics',
@@ -260,6 +264,15 @@ window.__ModuleLoader__.load({
       return raw === null ? DEFAULT_SIZE : clampSize(raw);
     }
 
+    const LANG_KEY = 'dsh-avatar-frame/lang/v1';
+
+    /** 插件自己的两套文案；`auto` 之外直接从这里取，不依赖宿主语言。 */
+    const DICTS = { zh, en };
+    function readStoredLang() {
+      const raw = readStored(LANG_KEY);
+      return raw === 'zh' || raw === 'en' ? raw : 'auto';
+    }
+
     const avatarStore = createStore({
       src: readStored(IMAGE_KEY),
       id: readStored(ID_KEY) || '',
@@ -269,6 +282,7 @@ window.__ModuleLoader__.load({
       endpoint: readStored(ENDPOINT_KEY) || DEFAULT_ENDPOINT,
       rate: Number(readStored(RATE_KEY)) > 0 ? Number(readStored(RATE_KEY)) : DEFAULT_RATE,
       tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
+      lang: readStoredLang(),
     });
     let translate = (key) => key;
     const dialogStore = createStore({ open: false, mode: 'idle', draft: null });
@@ -704,6 +718,13 @@ window.__ModuleLoader__.load({
       persist(TONE_KEY, next);
     }
 
+    /** 插件界面语言：'zh' / 'en'，'auto' 表示跟随宿主。 */
+    function setLang(value) {
+      const next = value === 'zh' || value === 'en' || value === 'auto' ? value : 'auto';
+      avatarStore.set({ lang: next });
+      persist(LANG_KEY, next === 'auto' ? '' : next);
+    }
+
     /** Normalized address of the user's own TTS service. */
     function resolveEndpoint() {
       const raw = (avatarStore.get().endpoint || '').trim();
@@ -936,6 +957,7 @@ window.__ModuleLoader__.load({
         endpoint: readStored(ENDPOINT_KEY) || DEFAULT_ENDPOINT,
         rate: Number(readStored(RATE_KEY)) > 0 ? Number(readStored(RATE_KEY)) : DEFAULT_RATE,
         tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
+        lang: readStoredLang(),
       });
       presetStore.set({ items: readPresets() });
     }
@@ -1029,6 +1051,20 @@ window.__ModuleLoader__.load({
 
     function useStats() {
       return React.useSyncExternalStore(statsStore.subscribe, statsStore.get, statsStore.get);
+    }
+
+    /**
+     * 插件自己的翻译：明确选了 zh/en 就用内置文案，否则交给宿主。
+     * 返回普通闭包而不是 useCallback —— 宿主页面按需重渲染，这里不需要稳定引用。
+     */
+    function useT(hostT) {
+      const lang = useAvatar().lang;
+      return (key) => {
+        if (lang === 'auto') return hostT(key);
+        const dict = DICTS[lang];
+        const hit = dict === undefined ? undefined : dict[key];
+        return hit === undefined ? hostT(key) : hit;
+      };
     }
 
     /** Open the avatar panel: the ID field plus the image picker button. */
@@ -1172,7 +1208,9 @@ window.__ModuleLoader__.load({
      * the column gutter, and shows the editable ID above the row.
      */
     const TurnProcessRow = React.memo(function TurnProcessRow(props) {
-      const { node, turnProcess, t, useChat, sessionId } = props;
+      const { node, turnProcess, t: hostT, useChat, sessionId } = props;
+      // 语言按钮改的是插件自己的文案，这里把宿主的 t 换掉。
+      const t = useT(hostT);
       const avatar = useAvatar();
       const speech = useSpeech();
       const turnNumber = node !== undefined && node.data !== undefined ? node.data.turn : undefined;
@@ -1603,7 +1641,8 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function CropDialog({ t }) {
+    function CropDialog({ t: hostT }) {
+      const t = useT(hostT);
       const state = useDialog();
       const avatar = useAvatar();
       const fileRef = React.useRef(null);
@@ -1740,7 +1779,12 @@ window.__ModuleLoader__.load({
                 'aria-label': t('dialog.title'),
                 onKeyDown: trapTab,
               },
-              h('div', { className: 'dsav-dialogTitle' }, t('dialog.title')),
+              h(
+                'div',
+                { className: 'dsav-dialogTitleRow' },
+                h('div', { className: 'dsav-dialogTitle' }, t('dialog.title')),
+                h(LangSwitch, { t }),
+              ),
               h(IdField, { t, id: avatar.id }),
               h(FontSizeField, { t }),
               h(SpeechToggle, { t }),
@@ -1855,13 +1899,42 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /* ------------------------------------------------------------ language */
+
+    /** 中文 / English 切换；三个界面共用同一个组件。 */
+    function LangSwitch({ t }) {
+      const avatar = useAvatar();
+      const options = [
+        { value: 'zh', label: '中文' },
+        { value: 'en', label: 'English' },
+      ];
+      return h(
+        'div',
+        { className: 'dsav-lang', role: 'group', 'aria-label': t('lang.label'), title: t('lang.label') },
+        options.map((option) =>
+          h(
+            'button',
+            {
+              key: option.value,
+              type: 'button',
+              className: 'dsav-langBtn' + (avatar.lang === option.value ? ' dsav-langOn' : ''),
+              'aria-pressed': avatar.lang === option.value ? 'true' : 'false',
+              onClick: () => setLang(option.value),
+            },
+            option.label,
+          ),
+        ),
+      );
+    }
+
     /* ------------------------------------------------- plugins bundle page */
 
     /**
      * Editor rendered on this bundle's own page in the plugin manager, so the
      * feature is reachable by opening the plugin instead of only by its avatar.
      */
-    function BundlePanel({ t, view }) {
+    function BundlePanel({ t: hostT, view }) {
+      const t = useT(hostT);
       const avatar = useAvatar();
       const status = useCloneStatus(avatar.endpoint);
       const fileRef = React.useRef(null);
@@ -1869,7 +1942,12 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         { className: 'dsav-bundle', 'data-dsh-avatar-frame': 'bundle' },
-        h('div', { className: 'dsav-bundleHead' }, t('bundle.title')),
+        h(
+          'div',
+          { className: 'dsav-dialogTitleRow' },
+          h('div', { className: 'dsav-bundleHead' }, t('bundle.title')),
+          h(LangSwitch, { t }),
+        ),
         h(
           'div',
           { className: 'dsav-bundleBody' },
@@ -2295,14 +2373,23 @@ window.__ModuleLoader__.load({
           ),
         ),
         message === null ? null : h('div', { className: 'dsav-endpointHint' }, message),
-        !running && lastExit !== null && lastExit.output
-          ? h('pre', { className: 'dsav-serviceLog' }, lastExit.output)
+        !running && lastExit !== null
+          ? h(
+              'pre',
+              { className: 'dsav-serviceLog' },
+              lastExit.output
+                ? lastExit.output
+                : lastExit.exitCode === null || lastExit.exitCode === 0
+                  ? ''
+                  : t('service.exitHint') + ' (exit code ' + lastExit.exitCode + ')',
+            )
           : null,
       );
     }
 
     /** 设置页：把分散的入口集中到一页。 */
-    function SettingsSection({ t }) {
+    function SettingsSection({ t: hostT }) {
+      const t = useT(hostT);
       const avatar = useAvatar();
       const speech = useSpeech();
       const status = useCloneStatus(avatar.endpoint);
@@ -2310,7 +2397,12 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         { className: 'dsav-section' },
-        h('div', { className: 'dsav-sectionTitle' }, t('section.avatar')),
+        h(
+          'div',
+          { className: 'dsav-dialogTitleRow' },
+          h('div', { className: 'dsav-sectionTitle' }, t('section.avatar')),
+          h(LangSwitch, { t }),
+        ),
         h(
           'div',
           { className: 'dsav-sectionRow' },
@@ -2405,6 +2497,12 @@ window.__ModuleLoader__.load({
 .dsav-scrim{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px;pointer-events:auto;background:var(--dsw-alias-bg-mask-1,rgba(0,0,0,.38))}
 .dsav-dialog{box-sizing:border-box;width:min(320px,100%);padding:18px 18px 14px;border-radius:var(--dsw-radius-panel,14px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);box-shadow:0 24px 48px -16px rgba(0,0,0,.45);font-size:13px;line-height:20px}
 .dsav-dialogTitle{font-size:14px;line-height:20px;font-weight:500;margin-bottom:14px}
+.dsav-dialogTitleRow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.dsav-dialogTitleRow .dsav-dialogTitle,.dsav-dialogTitleRow .dsav-bundleHead,.dsav-dialogTitleRow .dsav-sectionTitle{margin:0}
+.dsav-lang{display:inline-flex;flex:none;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;overflow:hidden}
+.dsav-langBtn{height:22px;padding:0 10px;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:11px;line-height:1;cursor:pointer}
+.dsav-langBtn:hover{color:var(--dsw-alias-label-primary)}
+.dsav-langOn{background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-label-primary);font-weight:600}
 .dsav-dialogSmall{width:min(368px,100%)}
 .dsav-input{box-sizing:border-box;width:100%;height:32px;padding:0 10px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px}
 .dsav-input::placeholder{color:var(--dsw-alias-label-tertiary)}
@@ -2511,10 +2609,41 @@ window.__ModuleLoader__.load({
 @media (prefers-reduced-motion: reduce){.dsav-frame,.dsav-process,.dsav-chevron{transition:none}}
 `;
 
+    /** 不依赖 React 的版本，给注册时用的 label thunk 之类。 */
+    function tRaw(key) {
+      const lang = avatarStore.get().lang;
+      if (lang === 'auto') return translate(key);
+      const dict = DICTS[lang];
+      const hit = dict === undefined ? undefined : dict[key];
+      return hit === undefined ? translate(key) : hit;
+    }
+
     /* --------------------------------------------------------------- apply */
 
     function apply(ctx) {
       translate = typeof ctx.locale.bind === 'function' ? ctx.locale.bind(NS) : (key) => key;
+      // 第一次运行时按宿主语言定一个初值，之后以插件自己的选择为准。
+      try {
+        if (readStoredLang() === 'auto') {
+          let id = '';
+          if (typeof ctx.locale.getLocale === 'function') {
+            const snapshot = ctx.locale.getLocale();
+            id = snapshot === undefined || snapshot === null ? '' : String(snapshot.id || snapshot.locale || '');
+          }
+          if (id === '') {
+            const rootLang = document.documentElement ? document.documentElement.lang : '';
+            id = typeof rootLang === 'string' ? rootLang : '';
+          }
+          if (id === '' && typeof navigator !== 'undefined' && typeof navigator.language === 'string') {
+            id = navigator.language;
+          }
+          if (id !== '') setLang(id.toLowerCase().startsWith('zh') ? 'zh' : 'en');
+          else setLang('zh');
+        }
+      } catch {
+        // 拿不到就退回中文，界面上的按钮仍可随时改。
+        setLang('zh');
+      }
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-avatar-frame: dictionaries');
       ctx.effect(() => {
         const tag = document.createElement('style');
@@ -2552,7 +2681,7 @@ window.__ModuleLoader__.load({
             name: 'settings.section',
             id: 'dsh-avatar-frame',
             order: 50,
-            label: () => translate('section.title'),
+            label: () => tRaw('section.title'),
             locale: NS,
           },
           SettingsSection,

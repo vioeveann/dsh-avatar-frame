@@ -221,13 +221,8 @@ function setup(ctx) {
       }
       const raw = stopRequested ? '' : await readOutput(spawned);
       stopRequested = false;
-      const output =
-        raw !== ''
-          ? raw
-          : exitCode === null || exitCode === 0
-            ? ''
-            : `进程已退出（exit code ${exitCode}），没有捕获到任何输出。常见原因：端口被系统占用或保留、命令或工作目录写错、依赖缺失。`;
-      lastExit = { exitCode, signal, at: Date.now(), output };
+      // 只回原始输出：空的时候由界面按当前语言给出提示，避免这里写死一种语言。
+      lastExit = { exitCode, signal, at: Date.now(), output: raw };
       if (scriptFile !== null) {
         try {
           fs.rmSync(scriptFile, { force: true });

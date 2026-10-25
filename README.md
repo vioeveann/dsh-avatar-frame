@@ -32,7 +32,7 @@ An avatar frame and read-aloud plugin for DeepSeek Harness. It ships **no** voic
 - 设置 → **角色头像**：头像、ID、字号、预设、朗读、引擎、语气、语速、服务地址、试听、诊断都在这页；
 - **语音服务进程**：一键启动/停止你自己配置的服务进程，可勾选「随 DSH 启动」（设置页与插件详情页都能操作）；
 - 诊断信息：服务状态与模型名、上一句合成耗时、播放进度、最近一次错误；
-- 中文 / English 双语文案；
+- **界面语言可切换**：中文 / English 两个按钮，放在插件详情页、设置 → 角色头像、点头像弹出的面板三处；选择只记在本机，刷新/重启后保持；
 - 所有数据只在本机 `localStorage`，不上传、不联网（除非你把服务地址指向远程）。
 
 ## 安装
@@ -155,6 +155,7 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 | `dsh-avatar-frame/engine/v1` | 引擎（`system` / `clone`） |
 | `dsh-avatar-frame/endpoint/v1` | 服务地址 |
 | `dsh-avatar-frame/rate/v1` / `tone/v1` | 语速 / 语气 |
+| `dsh-avatar-frame/lang/v1` | 界面语言（`zh` / `en`，不写则跟随 DSH） |
 
 同一个浏览器的多个窗口之间会同步。换电脑、清缓存会丢，插件没有云同步。
 
