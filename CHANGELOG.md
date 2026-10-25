@@ -2,6 +2,13 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.11.7] - 2026-10-26
+
+### 新增
+
+- `assets/icon-180.png`：市场卡片图标（由 `icon.svg` 渲染，180×180 位图）。
+- `screenshots.json`：声明 7 张截图，插件市场详情页按此顺序展示。
+
 ## [0.11.6] - 2026-10-25
 
 ### 变更
