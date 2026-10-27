@@ -72,6 +72,16 @@
 
 默认地址 `http://127.0.0.1:8123`，可在面板、插件详情页或设置页修改，旁边会显示「已连接 / 未连接」的实时状态。服务不可用时会自动退回系统语音；状态点在离线时**每 2.5 秒重试一次**，连上后每 30 秒静默保活一次，中途挂掉也会自己变红。
 
+### 系统语音怎么更好听
+
+「系统语音」用的是**浏览器能看到的系统音色**，列表由系统和你用的客户端决定：
+
+- **Windows 10**：基本只有老的 SAPI 音色（如「慧慧」），机械感明显，这是系统本身的限制；
+- **Windows 11**：可以安装微软的**自然音色**（晓晓、云希等）。路径是 设置 → 时间和语言 → 语音 → 添加语音（部分版本在「讲述人」里有自然语音的下载项）。装好后**重启一次 DSH**，音色下拉框里会出现名字带 `Natural` 的项；
+- 下拉框会**自动把自然音色排在最前**，不用手动找。
+
+如果下拉框里只有老音色，说明系统里没有、或者当前客户端拿不到——这时候更实际的办法是用「本地服务」：要么跑下面那个示例（微软在线音色），要么接你自己训练的模型。
+
 **先用一个示例跑通**：仓库里带了一个最小实现，用微软 Edge 的在线语音：
 
 ```bash
@@ -240,6 +250,16 @@ The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/pa
 ### Speech service
 
 The plugin never downloads a model or bundles a voice. It either uses the system voice or calls an HTTP service you provide. The default address is `http://127.0.0.1:8123` and can be changed in the panel, the plugin page or the settings page; a status dot shows connected / not connected and **retries every 2.5 seconds**, so start the service and watch it turn green — no refresh needed.
+
+### Making the system voice sound better
+
+The **System voice** option lists the voices your system exposes to the browser:
+
+- **Windows 10**: usually only the legacy SAPI voices (e.g. Huihui), which sound robotic — that is a system limit, not the plugin;
+- **Windows 11**: you can install Microsoft's **natural voices** (Xiaoxiao, Yunxi, …) from Settings → Time & language → Speech → Add voices (some builds also offer natural voices under Narrator). After installing, **restart DSH** and the picker will list entries containing `Natural`;
+- The picker **sorts natural voices first** automatically.
+
+If only legacy voices show up, the more practical route is **Local service**: run the example below (Microsoft online voices) or point the plugin at your own model.
 
 **Try it with the bundled example** (Microsoft Edge online voices):
 

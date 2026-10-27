@@ -1607,35 +1607,30 @@ window.__ModuleLoader__.load({
         refreshVoices();
       }, []);
       const options = voiceOptions();
-      const autoLabel = options.length > 0 ? t("sysvoice.auto") + " · " + options[0].name : t("sysvoice.auto");
+      const autoLabel = options.length > 0 ? t('sysvoice.auto') + ' · ' + options[0].name : t('sysvoice.auto');
       return h(
-        "div",
-        { className: "dsav-toggleRow" },
-        h("span", { className: "dsav-toggleLabel" }, t("sysvoice.label")),
+        'div',
+        { className: 'dsav-field' },
         h(
-          "div",
-          { className: "dsav-voicePick" },
-          h(
-            "select",
-            {
-              className: "dsav-select",
-              value: avatar.sysVoice,
-              "aria-label": t("sysvoice.label"),
-              onChange: (event) => setSysVoice(event.target.value),
-            },
-            h("option", { value: "" }, autoLabel),
-            options.map((voice) =>
-              h("option", { key: voice.name, value: voice.name }, voice.name + " · " + voice.lang),
-            ),
-          ),
-          h(
-            "button",
-            { type: "button", className: "dsav-btn", onClick: () => auditionSystemVoice() },
-            t("sysvoice.test"),
-          ),
+          'div',
+          { className: 'dsav-fieldHead' },
+          h('span', { className: 'dsav-toggleLabel' }, t('sysvoice.label')),
+          h('button', { type: 'button', className: 'dsav-btn', onClick: () => auditionSystemVoice() }, t('sysvoice.test')),
+        ),
+        h(
+          'select',
+          {
+            className: 'dsav-select dsav-selectFull',
+            value: avatar.sysVoice,
+            'aria-label': t('sysvoice.label'),
+            onChange: (event) => setSysVoice(event.target.value),
+          },
+          h('option', { value: '' }, autoLabel),
+          options.map((voice) => h('option', { key: voice.name, value: voice.name }, voice.name + ' · ' + voice.lang)),
         ),
       );
     }
+
     function EngineField({ t }) {
       const avatar = useAvatar();
       const options = [
@@ -2606,10 +2601,12 @@ window.__ModuleLoader__.load({
 .dsav-langBtn{height:22px;padding:0 10px;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:11px;line-height:1;cursor:pointer}
 .dsav-langBtn:hover{color:var(--dsw-alias-label-primary)}
 .dsav-langOn{background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-label-primary);font-weight:600}
-.dsav-voicePick{display:flex;align-items:center;gap:8px;min-width:0;flex:1;justify-content:flex-end}
-.dsav-select{box-sizing:border-box;max-width:260px;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
+.dsav-field{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.dsav-fieldHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.dsav-selectFull{width:100%;max-width:none}
+.dsav-select{box-sizing:border-box;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
 .dsav-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
-.dsav-dialogSmall{width:min(368px,100%)}
+.dsav-dialogSmall{width:min(420px,100%)}
 .dsav-input{box-sizing:border-box;width:100%;height:32px;padding:0 10px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px}
 .dsav-input::placeholder{color:var(--dsw-alias-label-tertiary)}
 .dsav-input:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
