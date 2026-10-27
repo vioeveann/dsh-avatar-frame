@@ -97,7 +97,6 @@ window.__ModuleLoader__.load({
       'auto.label': '自动朗读新回复',
       'volume.label': '音量',
       'audition.label': '试听一句',
-      'audition.stopHint': '正在朗读',
       'audition.playing': '试听中 {n}/{m}',
       'audition.failed': '试听失败',
       'audition.text': '程序启动，访问人，用户，你好！',
@@ -202,7 +201,6 @@ window.__ModuleLoader__.load({
       'auto.label': 'Read new replies automatically',
       'volume.label': 'Volume',
       'audition.label': 'Preview',
-      'audition.stopHint': 'Reading…',
       'audition.playing': 'Previewing {n}/{m}',
       'audition.failed': 'Preview failed',
       'audition.text': 'Program initializing. Accessor: user.',
@@ -771,12 +769,23 @@ window.__ModuleLoader__.load({
         );
       }
 
-      let timedOut = false;
+      // 独立的取消器：只影响这一次请求；同时跟随整体停止信号。
+      const local = new AbortController();
+      const forwardAbort = () => {
+        try {
+          local.abort();
+        } catch {
+          // 忽略。
+        }
+      };
+      if (controller && controller.signal && typeof controller.signal.addEventListener === 'function') {
+        if (controller.signal.aborted) local.abort();
+        else controller.signal.addEventListener('abort', forwardAbort, { once: true });
+      }
       const timer = typeof window.setTimeout === 'function'
         ? window.setTimeout(() => {
-            timedOut = true;
             try {
-              controller.abort();
+              local.abort();
             } catch {
               // 忽略。
             }
@@ -790,7 +799,7 @@ window.__ModuleLoader__.load({
           speed: avatar.rate || DEFAULT_RATE,
           tone: avatar.tone || 'normal',
         }),
-        signal: controller.signal,
+        signal: local.signal,
       }).then((response) => {
         trace('tts: status ' + response.status);
         if (!response.ok) throw new Error('tts responded ' + response.status);
@@ -814,6 +823,9 @@ window.__ModuleLoader__.load({
         throw error;
       }).finally(() => {
         if (timer !== null && typeof window.clearTimeout === 'function') window.clearTimeout(timer);
+        if (controller && controller.signal && typeof controller.signal.removeEventListener === 'function') {
+          controller.signal.removeEventListener('abort', forwardAbort);
+        }
       });
     }
 

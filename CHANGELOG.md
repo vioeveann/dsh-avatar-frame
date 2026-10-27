@@ -2,6 +2,14 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.13.18] - 2026-10-28
+
+### 修复
+
+- **跨段误取消**：直连 `/tts` 用的是全局 `speechRun.controller`，某一段 1.5 秒超时时
+  会把同时进行中的其它段一起中止。现在每次请求用独立 AbortController，只跟随整体停止信号。
+- 删掉未使用的文案键 `audition.stopHint`（字典两边同时清理，101 键仍对齐）。
+
 ## [0.13.17] - 2026-10-28
 
 ### 变更
