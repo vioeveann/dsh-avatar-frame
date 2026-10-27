@@ -2668,13 +2668,17 @@ window.__ModuleLoader__.load({
               h(AuditionButton, { t }),
               h(
                 'span',
-                { className: 'dsav-state dsav-state-' + status.status },
-                h('span', { className: 'dsav-dot' }),
-                t('status.' + status.status) + (status.model ? ' · ' + status.model : ''),
+                { className: 'dsav-statusLine' },
+                h(
+                  'span',
+                  { className: 'dsav-state dsav-state-' + status.status },
+                  h('span', { className: 'dsav-dot' }),
+                  t('status.' + status.status) + (status.model ? ' · ' + status.model : ''),
+                ),
+                statusDetail(t, status) === null
+                  ? null
+                  : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
               ),
-              statusDetail(t, status) === null
-                ? null
-                : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
             )
           : null,
         h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
@@ -2824,6 +2828,8 @@ window.__ModuleLoader__.load({
 .dsav-section{display:flex;flex-direction:column;gap:10px;padding:4px 0 8px}
 .dsav-sectionTitle{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);margin-top:6px}
 .dsav-sectionRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dsav-statusLine{display:inline-flex;align-items:center;gap:8px;min-width:0;flex:1}
+.dsav-statusLine .dsav-endpointHint{margin-top:0;flex:0 1 auto;min-width:0}
 .dsav-sectionPreview{width:44px;height:44px;border-radius:50%;overflow:hidden;flex:none;background:var(--dsw-alias-bg-l2);display:inline-flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-tertiary)}
 .dsav-sectionPreview img{width:100%;height:100%;object-fit:cover}
 .dsav-sectionField{flex:1;min-width:180px}
