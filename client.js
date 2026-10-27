@@ -329,6 +329,8 @@ window.__ModuleLoader__.load({
     /* --------------------------------------------------------------- speech */
 
     let cachedVoices = [];
+    /** 是否已经向浏览器要过一次列表（列表可能是空的，那就别再问了）。 */
+    let voicesProbed = false;
     /** 系统语音列表（浏览器异步加载，加载完要让下拉框刷新）。 */
     const voicesStore = createStore({ list: [] });
     /** One active playback: a token guards against stopped or replaced runs. */
@@ -349,13 +351,26 @@ window.__ModuleLoader__.load({
       error: null,
     };
 
-    function refreshVoices() {
-      try {
-        cachedVoices = window.speechSynthesis.getVoices() || [];
-      } catch {
-        cachedVoices = [];
+    function sameVoiceList(a, b) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i += 1) {
+        if (a[i].name !== b[i].name || a[i].lang !== b[i].lang) return false;
       }
-      voicesStore.set({ list: cachedVoices.slice() });
+      return true;
+    }
+
+    /** 读取浏览器音色列表。只有内容真的变了才写 store —— 渲染期间调用绝不能触发 set。 */
+    function refreshVoices() {
+      voicesProbed = true;
+      let list = [];
+      try {
+        list = window.speechSynthesis.getVoices() || [];
+      } catch {
+        list = [];
+      }
+      cachedVoices = list;
+      const previous = voicesStore.get().list;
+      if (!sameVoiceList(previous, list)) voicesStore.set({ list: list.slice() });
     }
 
     /**
@@ -387,7 +402,14 @@ window.__ModuleLoader__.load({
      * - 不传则全部返回，中文按界面语言排在前面。
      */
     function voiceOptions(lang) {
-      if (cachedVoices.length === 0) refreshVoices();
+      if (cachedVoices.length === 0 && !voicesProbed) {
+        voicesProbed = true;
+        try {
+          cachedVoices = window.speechSynthesis.getVoices() || [];
+        } catch {
+          cachedVoices = [];
+        }
+      }
       const all = cachedVoices.slice().sort((a, b) => scoreVoice(b) - scoreVoice(a));
       if (lang === 'zh' || lang === 'en') {
         const hit = all.filter((voice) => new RegExp('^' + lang, 'i').test(voice.lang || ''));
@@ -409,7 +431,14 @@ window.__ModuleLoader__.load({
     function pickVoice(text) {
       const chosen = avatarStore.get().sysVoice;
       if (chosen !== '') {
-        if (cachedVoices.length === 0) refreshVoices();
+        if (cachedVoices.length === 0 && !voicesProbed) {
+          voicesProbed = true;
+          try {
+            cachedVoices = window.speechSynthesis.getVoices() || [];
+          } catch {
+            cachedVoices = [];
+          }
+        }
         const hit = cachedVoices.find((voice) => voice.name === chosen);
         if (hit !== undefined) return hit;
       }
@@ -1630,6 +1659,13 @@ window.__ModuleLoader__.load({
       const voices = React.useSyncExternalStore(voicesStore.subscribe, voicesStore.get, voicesStore.get).list;
       React.useEffect(() => {
         refreshVoices();
+        const synth = window.speechSynthesis;
+        if (synth && typeof synth.addEventListener === 'function') {
+          const onChange = () => refreshVoices();
+          synth.addEventListener('voiceschanged', onChange);
+          return () => synth.removeEventListener('voiceschanged', onChange);
+        }
+        return undefined;
       }, []);
       const options = voiceOptions();  // 中英都列，按界面语言排序
       const autoLabel = options.length > 0 ? t('sysvoice.auto') + ' · ' + options[0].name : t('sysvoice.auto');
