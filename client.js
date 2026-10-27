@@ -368,28 +368,52 @@ window.__ModuleLoader__.load({
       let score = 0;
       if (/natural|neural|online|premium|enhanced/i.test(name)) score += 100;
       if (/^zh/i.test(lang)) score += 20;
-      if (/xiaoxiao|xiaoyi|xiaomo|xiaoxuan|xiaohan|xiaorui|yaoyao|女子|女/i.test(name)) score += 10;
-      if (/huihui|kangkang|yaoyao.*sapi/i.test(name)) score -= 30;
+      // 成年女声优先（和默认人设一致）；童声、男声略降
+      if (/xiaoxiao|xiaoyi|xiaomo|xiaoxuan|xiaohan|xiaorui|huihui|zira|aria|jenny|female|女子|女/i.test(name)) score += 10;
+      if (/yaoyao|童|child/i.test(name)) score -= 10;
+      if (/kangkang|mark|guy|david|male/i.test(name)) score -= 10;
       if (/google/i.test(name)) score += 15;
       return score;
     }
 
-    /** 可选的中文（或全部）系统语音，按“像人”的程度排序。 */
-    function voiceOptions() {
-      if (cachedVoices.length === 0) refreshVoices();
-      const all = cachedVoices.slice();
-      const chinese = all.filter((voice) => /^zh/i.test(voice.lang || ''));
-      const pool = chinese.length > 0 ? chinese : all;
-      return pool.slice().sort((a, b) => scoreVoice(b) - scoreVoice(a));
+    /** 判断一段文本该用哪种语言的系统语音：有汉字就是中文，否则英文。 */
+    function detectTextLang(text) {
+      return /[\u3400-\u9fff]/.test(String(text || '')) ? 'zh' : 'en';
     }
 
-    function pickVoice() {
-      const options = voiceOptions();
+    /**
+     * 可选的系统语音。
+     * - 传 'zh' / 'en' 时只留该语言（没有就退回全部）；
+     * - 不传则全部返回，中文按界面语言排在前面。
+     */
+    function voiceOptions(lang) {
+      if (cachedVoices.length === 0) refreshVoices();
+      const all = cachedVoices.slice().sort((a, b) => scoreVoice(b) - scoreVoice(a));
+      if (lang === 'zh' || lang === 'en') {
+        const hit = all.filter((voice) => new RegExp('^' + lang, 'i').test(voice.lang || ''));
+        if (hit.length > 0) return hit;
+        return all;
+      }
+      const uiZh = avatarStore.get().lang !== 'en';
+      return all.sort((a, b) => {
+        const za = /^zh/i.test(a.lang || '') === uiZh ? 0 : 1;
+        const zb = /^zh/i.test(b.lang || '') === uiZh ? 0 : 1;
+        return za - zb || scoreVoice(b) - scoreVoice(a);
+      });
+    }
+
+    /**
+     * 挑一个声音：用户手动选过就用它；否则按**要读的文本**挑语言——
+     * 英文回复配英文音色，中文回复配中文音色，界面是哪种语言都不影响。
+     */
+    function pickVoice(text) {
       const chosen = avatarStore.get().sysVoice;
       if (chosen !== '') {
-        const hit = options.find((voice) => voice.name === chosen);
+        if (cachedVoices.length === 0) refreshVoices();
+        const hit = cachedVoices.find((voice) => voice.name === chosen);
         if (hit !== undefined) return hit;
       }
+      const options = voiceOptions(detectTextLang(text));
       return options[0] || null;
     }
 
@@ -691,7 +715,7 @@ window.__ModuleLoader__.load({
       synth.cancel();
       const speak = () => {
         const utterance = new SpeechSynthesisUtterance(text);
-        const voice = pickVoice();
+        const voice = pickVoice(text);
         if (voice !== null) {
           utterance.voice = voice;
           utterance.lang = voice.lang;
@@ -754,8 +778,9 @@ window.__ModuleLoader__.load({
     /** 用系统语音念一句，给「试听」按钮用。 */
     function auditionSystemVoice() {
       if (typeof window.speechSynthesis === 'undefined') return;
-      const utterance = new SpeechSynthesisUtterance(translate('audition.text'));
-      const voice = pickVoice();
+      const sample = tRaw('audition.text');
+      const utterance = new SpeechSynthesisUtterance(sample);
+      const voice = pickVoice(sample);
       if (voice !== null) {
         utterance.voice = voice;
         utterance.lang = voice.lang;
@@ -1606,7 +1631,7 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         refreshVoices();
       }, []);
-      const options = voiceOptions();
+      const options = voiceOptions();  // 中英都列，按界面语言排序
       const autoLabel = options.length > 0 ? t('sysvoice.auto') + ' · ' + options[0].name : t('sysvoice.auto');
       return h(
         'div',
