@@ -1560,7 +1560,9 @@ window.__ModuleLoader__.load({
         if (pending === null) return;
         state.pending = null;
         state.spoken = pending.turn;
-        startSpeech(pending.text, pending.sessionId, pending.turn);
+        const engine = avatarStore.get().engine;
+        if (engine === 'clone') speakClone(pending.text, pending.sessionId, pending.turn);
+        else startSpeech(pending.text, pending.sessionId, pending.turn);
       }, 700);
     }
 
