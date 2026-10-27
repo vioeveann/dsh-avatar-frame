@@ -315,6 +315,39 @@ function setup(ctx) {
       }
       const payload = await jsonBody(req);
       const action = String(payload.action || '');
+      if (action === 'tts') {
+        const target = String(payload.endpoint || '').replace(/\/+$/, '');
+        const text = String(payload.text || '');
+        if (!/^https?:\/\//.test(target) || text === '') {
+          send(res, 400, { ok: false, error: 'bad tts request' });
+          return;
+        }
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 180000);
+          const upstream = await fetch(target + '/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, speed: payload.speed, tone: payload.tone }),
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (!upstream.ok) {
+            send(res, 502, { ok: false, error: 'upstream ' + upstream.status });
+            return;
+          }
+          const bytes = Buffer.from(await upstream.arrayBuffer());
+          send(res, 200, {
+            ok: true,
+            contentType: upstream.headers.get('content-type') || 'audio/wav',
+            base64: bytes.toString('base64'),
+          });
+        } catch (error) {
+          appendDebug('host tts proxy failed: ' + String(error && error.message ? error.message : error));
+          send(res, 502, { ok: false, error: String(error && error.message ? error.message : error) });
+        }
+        return;
+      }
       if (action === 'debug') {
         appendDebug(typeof payload.message === 'string' ? payload.message : JSON.stringify(payload));
         send(res, 200, { ok: true });

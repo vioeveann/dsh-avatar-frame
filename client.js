@@ -708,6 +708,35 @@ window.__ModuleLoader__.load({
     }
 
     /** One synthesis request for one chunk. */
+    /** base64 → Blob（宿主端代理回来的音频）。 */
+    function base64ToBlob(base64, contentType) {
+      const binary = window.atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: contentType || 'audio/wav' });
+    }
+
+    /** 走宿主端转发：浏览器直连被网络策略拦下时的兜底通道。 */
+    async function requestSpeechViaHost(chunk, avatar) {
+      const response = await fetch(SERVICE_ROUTE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'tts',
+          endpoint: resolveEndpoint(),
+          text: chunk,
+          speed: avatar.rate || DEFAULT_RATE,
+          tone: avatar.tone || 'normal',
+        }),
+      });
+      if (!response.ok) throw new Error('host tts proxy responded ' + response.status);
+      const payload = await response.json();
+      if (!payload || payload.ok !== true || typeof payload.base64 !== 'string') {
+        throw new Error((payload && payload.error) || 'host tts proxy returned no audio');
+      }
+      return base64ToBlob(payload.base64, payload.contentType);
+    }
+
     function requestSpeech(chunk, controller) {
       const avatar = avatarStore.get();
       const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
@@ -715,14 +744,16 @@ window.__ModuleLoader__.load({
       trace('tts: post ' + url + ' chunk=' + chunk.slice(0, 12));
       // 兜底超时：某些环境下请求会一直挂着（例如被浏览器的网络策略拦下），
       // 没有超时就永远不会有结果，界面表现为「点了没反应」。
+      let timedOut = false;
       const timer = typeof window.setTimeout === 'function'
         ? window.setTimeout(() => {
+            timedOut = true;
             try {
               controller.abort();
             } catch {
               // 忽略。
             }
-          }, 90000)
+          }, 6000)
         : null;
       return fetch(url, {
         method: 'POST',
@@ -742,9 +773,11 @@ window.__ModuleLoader__.load({
           trace('tts: blob ' + blob.size);
           return blob;
         });
-      }).catch((error) => {
-        trace('tts: failed ' + String(error && error.name) + ' ' + String(error && error.message));
-        throw error;
+      }).catch(async (error) => {
+        trace('tts: direct failed (' + String(error && error.name) + ' ' + String(error && error.message) + ') -> host proxy');
+        const blob = await requestSpeechViaHost(chunk, avatar);
+        trace('tts: host proxy ok ' + blob.size);
+        return blob;
       }).finally(() => {
         if (timer !== null && typeof window.clearTimeout === 'function') window.clearTimeout(timer);
       });

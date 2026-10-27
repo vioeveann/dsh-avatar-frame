@@ -2,6 +2,14 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.13.10] - 2026-10-28
+
+### 新增
+
+- **宿主端 TTS 代理**：`POST /dsh-avatar-frame/service {action:"tts"}`，由宿主进程去请求本机语音服务，
+  绕开浏览器对 `dsh-app:// → http://127.0.0.1` 的网络限制。
+- 客户端直连 `/tts` 超过 6 秒或失败时，自动改用宿主代理，并在日志里记下 `tts: direct failed → host proxy`。
+
 ## [0.13.9] - 2026-10-28
 
 ### 修复
