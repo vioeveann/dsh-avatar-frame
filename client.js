@@ -1071,6 +1071,11 @@ window.__ModuleLoader__.load({
     function setAutoSpeech(enabled) {
       avatarStore.set({ autoSpeech: enabled === true });
       persist(AUTO_SPEECH_KEY, enabled === true ? '1' : '0');
+      if (enabled !== true) {
+        // 关掉后重新打开，再按「当前会话生效、其他会话需手动点」的规则来。
+        autoArmedSessions.clear();
+        autoArmedInitialized = false;
+      }
     }
 
     function setVolume(value) {
@@ -1638,6 +1643,16 @@ window.__ModuleLoader__.load({
      * - 基线要等这一批渲染结束再定，否则会把最新的那条当成"新回复"立刻念出来。
      */
     const autoSpeechState = { baselines: new Map(), highest: new Map(), settleTimers: new Map(), spoken: null, pending: null, timer: null };
+    /** 哪些会话已经「获得许可」自动朗读：切过去的会话默认不念，点过小喇叭才加入。 */
+    const autoArmedSessions = new Set();
+    let autoArmedInitialized = false;
+
+    /** 用户手动点小喇叭即视为在这个会话里同意自动朗读。 */
+    function armAutoSpeech(sessionId) {
+      if (sessionId === undefined || sessionId === null) return;
+      autoArmedSessions.add(String(sessionId));
+      autoArmedInitialized = true;
+    }
 
     function scheduleAutoSpeech(turn, text, enabled, sessionId) {
       if (!enabled) {
@@ -1667,29 +1682,26 @@ window.__ModuleLoader__.load({
         return;
       }
 
+      // 切过来的会话默认不念；只有用户在这个会话里点过小喇叭才自动朗读。
+      if (!autoArmedSessions.has(key)) return;
+
       const baseline = state.baselines.get(key);
       if (turn <= baseline || turn === state.spoken) return;
       state.pending = { turn, text, sessionId };
       if (state.timer !== null) window.clearTimeout(state.timer);
       // 等一轮渲染稳定再念，避免同一轮被重复触发。
-      const fire = (attempt) => {
-        state.timer = window.setTimeout(() => {
-          state.timer = null;
-          const pending = state.pending;
-          if (pending === null) return;
-          // 别的声音还在播就先让路，等它结束再念这一轮。
-          if (speechStore.get().status !== 'idle' && attempt < 20) {
-            fire(attempt + 1);
-            return;
-          }
-          state.pending = null;
-          state.spoken = pending.turn;
-          const engine = avatarStore.get().engine;
-          if (engine === 'clone') speakClone(pending.text, pending.sessionId, pending.turn);
-          else startSpeech(pending.text, pending.sessionId, pending.turn);
-        }, 700);
-      };
-      fire(0);
+      state.timer = window.setTimeout(() => {
+        state.timer = null;
+        const pending = state.pending;
+        if (pending === null) return;
+        state.pending = null;
+        state.spoken = pending.turn;
+        // 上一轮还没念完就来了新回复：打断它，先念新的。
+        if (speechStore.get().status !== 'idle') stopSpeech();
+        const engine = avatarStore.get().engine;
+        if (engine === 'clone') speakClone(pending.text, pending.sessionId, pending.turn);
+        else startSpeech(pending.text, pending.sessionId, pending.turn);
+      }, 600);
     }
 
     /**
@@ -1710,7 +1722,11 @@ window.__ModuleLoader__.load({
       const replyText = selectChat((snapshot) => readReplyText(snapshot, turnNumber, answerStep, avatar.speech));
       React.useEffect(() => {
         if (!avatar.speech || !avatar.autoSpeech) return;
-        if (speechStore.get().status !== 'idle') return;
+        // 打开自动朗读时，当前这个会话直接生效；之后切过去的会话要手动点小喇叭。
+        if (!autoArmedInitialized) {
+          autoArmedInitialized = true;
+          armAutoSpeech(sessionId);
+        }
         scheduleAutoSpeech(turnNumber, replyText, true, sessionId);
       }, [turnNumber, replyText, avatar.autoSpeech, avatar.speech, sessionId]);
       // 换会话（或这一轮已经不属于当前播放）时，把还在响的声音停掉：
@@ -1782,6 +1798,8 @@ window.__ModuleLoader__.load({
                 if (speaking) {
                   stopSpeech();
                 } else {
+                  // 手动点过小喇叭，这个会话就允许自动朗读了。
+                  armAutoSpeech(sessionId);
                   const spoken = normalizeForSpeech(replyText);
                   if (avatar.engine === 'clone') speakClone(spoken, sessionId, data.turn);
                   else startSpeech(spoken, sessionId, data.turn);
