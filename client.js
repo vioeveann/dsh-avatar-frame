@@ -545,6 +545,8 @@ window.__ModuleLoader__.load({
       }
       speechRun.system = false;
       speechRun.paused = false;
+      speechRun.pendingFetches = 0;
+      speechRun.settledAt = null;
       speechRun.sessionId = null;
       speechRun.turn = null;
       speechRun.error = null;
@@ -1062,6 +1064,8 @@ window.__ModuleLoader__.load({
     function setEndpoint(value) {
       avatarStore.set({ endpoint: value });
       persist(ENDPOINT_KEY, value);
+      // 换了地址就重新给直连一次机会。
+      directTtsBroken = false;
     }
 
     function setAutoSpeech(enabled) {
@@ -1668,16 +1672,24 @@ window.__ModuleLoader__.load({
       state.pending = { turn, text, sessionId };
       if (state.timer !== null) window.clearTimeout(state.timer);
       // 等一轮渲染稳定再念，避免同一轮被重复触发。
-      state.timer = window.setTimeout(() => {
-        state.timer = null;
-        const pending = state.pending;
-        if (pending === null) return;
-        state.pending = null;
-        state.spoken = pending.turn;
-        const engine = avatarStore.get().engine;
-        if (engine === 'clone') speakClone(pending.text, pending.sessionId, pending.turn);
-        else startSpeech(pending.text, pending.sessionId, pending.turn);
-      }, 700);
+      const fire = (attempt) => {
+        state.timer = window.setTimeout(() => {
+          state.timer = null;
+          const pending = state.pending;
+          if (pending === null) return;
+          // 别的声音还在播就先让路，等它结束再念这一轮。
+          if (speechStore.get().status !== 'idle' && attempt < 20) {
+            fire(attempt + 1);
+            return;
+          }
+          state.pending = null;
+          state.spoken = pending.turn;
+          const engine = avatarStore.get().engine;
+          if (engine === 'clone') speakClone(pending.text, pending.sessionId, pending.turn);
+          else startSpeech(pending.text, pending.sessionId, pending.turn);
+        }, 700);
+      };
+      fire(0);
     }
 
     /**
@@ -2725,7 +2737,9 @@ window.__ModuleLoader__.load({
     function AuditionButton({ t }) {
       const speech = useSpeech();
       const busy = speech.status === 'speaking' || speech.status === 'paused';
-      const failed = !busy && speech.error;
+      // 只显示试听自己产生的错误：试听不属于任何会话（sessionId 为 null），
+      // 聊天里某句朗读失败不应该在设置页显示成「试听失败」。
+      const failed = !busy && speech.error && speech.sessionId === null;
       const hint = busy
         ? t('audition.playing').replace('{n}', String(speech.index + 1)).replace('{m}', String(speech.total))
         : failed
