@@ -1446,51 +1446,56 @@ window.__ModuleLoader__.load({
         let retryTimer = null;
         let controller = null;
         // 服务重启时第一次请求可能落在旧连接上，先重试一次再判定离线；
-        // 判定离线后每 8 秒再探一次，服务起来后界面会自己变回已连接。
-        const schedule = (delay) => {
+        // 判定离线后每 2.5 秒再探一次（本机 /health 只要 2ms，成本可忽略），
+        // 连上后改成每 30 秒一次的静默保活，服务中途挂掉也能自己变红。
+        const OFFLINE_RETRY_MS = 2500;
+        const ONLINE_KEEPALIVE_MS = 30000;
+        const TRANSIENT_RETRY_MS = 700;
+        const schedule = (delay, attempt, silent) => {
           retryTimer = window.setTimeout(() => {
             if (!alive) return;
-            probe(0);
+            probe(attempt, silent);
           }, delay);
         };
-        const probe = (attempt) => {
+        const probe = (attempt, silent) => {
           if (!alive) return;
           controller = new AbortController();
           const timer = window.setTimeout(() => controller.abort(), 4000);
+          const retryOrOffline = () => {
+            if (!alive) return;
+            if (attempt < 1) schedule(TRANSIENT_RETRY_MS, attempt + 1, silent);
+            else setOffline();
+          };
+          const markOnline = (model) => {
+            if (!alive) return;
+            setState({ status: 'online', model });
+            schedule(ONLINE_KEEPALIVE_MS, 0, true);
+          };
           fetch(address + '/health', { signal: controller.signal })
             .then((response) => {
               if (!alive) return;
               if (!response.ok) {
-                if (attempt === 0) schedule(700);
-                else setOffline();
+                retryOrOffline();
                 return;
               }
               return response
                 .json()
-                .then((payload) => {
-                  if (alive) setState({ status: 'online', model: payload && payload.model ? String(payload.model) : null });
-                })
-                .catch(() => {
-                  if (alive) setState({ status: 'online', model: null });
-                });
+                .then((payload) => markOnline(payload && payload.model ? String(payload.model) : null))
+                .catch(() => markOnline(null));
             })
-            .catch(() => {
-              if (!alive) return;
-              if (attempt === 0) schedule(700);
-              else setOffline();
-            })
+            .catch(retryOrOffline)
             .finally(() => {
               window.clearTimeout(timer);
             });
         };
         const setOffline = () => {
           setState({ status: 'offline', model: null });
-          schedule(8000);
+          schedule(OFFLINE_RETRY_MS, 0, true);
         };
         // Wait for typing to settle, so the address is not probed per keystroke.
         const debounce = window.setTimeout(() => {
           setState({ status: 'checking', model: null });
-          probe(0);
+          probe(0, false);
         }, 350);
         return () => {
           alive = false;
