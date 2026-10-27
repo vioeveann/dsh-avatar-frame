@@ -399,6 +399,8 @@ window.__ModuleLoader__.load({
       gain: null,
       /** 看门狗用：状态进入「在播」但没有音源时的起始时间。 */
       settledAt: null,
+      /** 正在等待返回的合成请求数量；>0 说明在正常等待，不算卡住。 */
+      pendingFetches: 0,
       sessionId: null,
       turn: null,
       error: null,
@@ -745,14 +747,26 @@ window.__ModuleLoader__.load({
       const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       const url = resolveEndpoint() + '/tts';
       trace('tts: post ' + url + ' chunk=' + chunk.slice(0, 12));
-      // 兜底超时：某些环境下请求会一直挂着（例如被浏览器的网络策略拦下），
-      // 没有超时就永远不会有结果，界面表现为「点了没反应」。
+      // 直连只等 1.5 秒：dsh-app:// 页面访问 127.0.0.1 常被网络策略拦下，
+      // 与其干等，不如尽快改走宿主代理（宿主进程不受这层限制）。
+      speechRun.pendingFetches += 1;
+      const done = () => {
+        speechRun.pendingFetches = Math.max(0, speechRun.pendingFetches - 1);
+      };
+
       if (directTtsBroken) {
         trace('tts: direct disabled, going straight to host proxy');
-        return requestSpeechViaHost(chunk, avatar).catch((error) => {
-          trace('tts: host proxy failed ' + String(error && error.message));
-          throw error;
-        });
+        return requestSpeechViaHost(chunk, avatar).then(
+          (blob) => {
+            done();
+            return blob;
+          },
+          (error) => {
+            done();
+            trace('tts: host proxy failed ' + String(error && error.message));
+            throw error;
+          },
+        );
       }
 
       let timedOut = false;
@@ -764,7 +778,7 @@ window.__ModuleLoader__.load({
             } catch {
               // 忽略。
             }
-          }, 6000)
+          }, 1500)
         : null;
       return fetch(url, {
         method: 'POST',
@@ -790,6 +804,12 @@ window.__ModuleLoader__.load({
         const blob = await requestSpeechViaHost(chunk, avatar);
         trace('tts: host proxy ok ' + blob.size);
         return blob;
+      }).then((blob) => {
+        done();
+        return blob;
+      }, (error) => {
+        done();
+        throw error;
       }).finally(() => {
         if (timer !== null && typeof window.clearTimeout === 'function') window.clearTimeout(timer);
       });
@@ -909,6 +929,10 @@ window.__ModuleLoader__.load({
           if (speechRun.token !== token) return;
           const buffer = await ctx.decodeAudioData(data);
           trace('clone: decoded ' + index + ' duration=' + (buffer ? buffer.duration : 'n/a'));
+          if (speechRun.error !== null) {
+            speechRun.error = null;
+            publishSpeech(speechStore.get().status);
+          }
           if (speechRun.token !== token) return;
           await playSpeechBuffer(buffer);
           trace('clone: played ' + index);
@@ -3197,7 +3221,8 @@ window.__ModuleLoader__.load({
 .dsav-voiceCount{white-space:nowrap}
 .dsav-warming{font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsav-muted{opacity:.5}
-.dsav-auditionError{color:var(--dsw-alias-label-error, #c0392b);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsav-auditionError{color:var(--dsw-alias-label-error, #c0392b);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:0}
+.dsav-sectionRow .dsav-auditionError,.dsav-sectionRow .dsav-endpointHint{margin-top:0;align-self:center}
 .dsav-volume{display:flex;align-items:center;gap:8px;min-width:160px}
 .dsav-volume .dsav-range{margin:0;flex:1}
 .dsav-volumeValue{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
@@ -3360,7 +3385,7 @@ window.__ModuleLoader__.load({
         const timer = window.setInterval(() => {
           const state = speechStore.get();
           if (state.status === 'idle') return;
-          if (speechRun.source !== null || speechRun.system) {
+          if (speechRun.source !== null || speechRun.system || speechRun.pendingFetches > 0) {
             speechRun.settledAt = null;
             return;
           }
