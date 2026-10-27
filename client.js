@@ -74,6 +74,8 @@ window.__ModuleLoader__.load({
       'sysvoice.label': '系统语音',
       'sysvoice.auto': '自动选择',
       'sysvoice.test': '试听',
+      'sysvoice.refresh': '刷新列表',
+      'sysvoice.count': '共 {n} 个音色',
       'endpoint.label': '服务地址',
       'endpoint.placeholder': '例如 http://127.0.0.1:8123',
       'status.checking': '检测中',
@@ -169,6 +171,8 @@ window.__ModuleLoader__.load({
       'sysvoice.label': 'System voice',
       'sysvoice.auto': 'Automatic',
       'sysvoice.test': 'Preview',
+      'sysvoice.refresh': 'Refresh list',
+      'sysvoice.count': '{n} voices found',
       'endpoint.label': 'Service address',
       'endpoint.placeholder': 'e.g. http://127.0.0.1:8123',
       'status.checking': 'Checking',
@@ -1676,7 +1680,13 @@ window.__ModuleLoader__.load({
           'div',
           { className: 'dsav-fieldHead' },
           h('span', { className: 'dsav-toggleLabel' }, t('sysvoice.label')),
-          h('button', { type: 'button', className: 'dsav-btn', onClick: () => auditionSystemVoice() }, t('sysvoice.test')),
+          h(
+            'span',
+            { className: 'dsav-voiceTools' },
+            h('span', { className: 'dsav-endpointHint dsav-voiceCount' }, t('sysvoice.count').replace('{n}', String(options.length))),
+            h('button', { type: 'button', className: 'dsav-btn', onClick: () => refreshVoices() }, t('sysvoice.refresh')),
+            h('button', { type: 'button', className: 'dsav-btn', onClick: () => auditionSystemVoice() }, t('sysvoice.test')),
+          ),
         ),
         h(
           'select',
@@ -2665,6 +2675,8 @@ window.__ModuleLoader__.load({
 .dsav-field{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .dsav-fieldHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .dsav-selectFull{width:100%;max-width:none}
+.dsav-voiceTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dsav-voiceCount{white-space:nowrap}
 .dsav-select{box-sizing:border-box;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
 .dsav-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
 .dsav-dialogSmall{width:min(420px,100%)}
