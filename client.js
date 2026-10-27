@@ -82,6 +82,9 @@ window.__ModuleLoader__.load({
       'status.online': '已连接',
       'status.offline': '未连接',
       'status.warming': '正在启动语音服务，已等待 {s} 秒（模型加载通常要 10–30 秒）',
+      'status.reasonTimeout': '连接超时：服务 4 秒没有响应',
+      'status.reasonUnreachable': '连不上服务：可能还没启动，或地址不对',
+      'status.reasonHttp': '服务返回 HTTP {code}',
       'endpoint.offlineHint': '连不上时先确认语音服务已经启动；启动后这里每 2.5 秒自动重试，不用刷新。',
       'tone.label': '语气',
       'tone.calm': '平稳',
@@ -179,6 +182,9 @@ window.__ModuleLoader__.load({
       'status.online': 'Connected',
       'status.offline': 'Not connected',
       'status.warming': 'Starting the speech service — {s}s elapsed (model loading usually takes 10–30s)',
+      'status.reasonTimeout': 'Timed out: no response within 4s',
+      'status.reasonUnreachable': 'Cannot reach the service: not running, or wrong address',
+      'status.reasonHttp': 'The service answered HTTP {code}',
       'endpoint.offlineHint': 'Start your TTS service first; this dot retries every 2.5 seconds and reconnects on its own.',
       'tone.label': 'Tone',
       'tone.calm': 'Calm',
@@ -1577,30 +1583,30 @@ window.__ModuleLoader__.load({
           if (!alive) return;
           controller = new AbortController();
           const timer = window.setTimeout(() => controller.abort(), 4000);
-          const retryOrOffline = () => {
+          const retryOrOffline = (reason) => {
             if (!alive) return;
             const since = probeStore.get().startingSince;
             const warming = since !== null && Date.now() - since < SERVICE_WARMUP_MS;
             if (warming) {
               // 暖机期：服务大概率还在加载模型，保持「检测中」，别显示「未连接」。
-              setState({ status: 'checking', model: null });
+              setState({ status: 'checking', model: null, reason: null });
               schedule(1200, 0, true);
               return;
             }
             if (attempt < 1) schedule(TRANSIENT_RETRY_MS, attempt + 1, silent);
-            else setOffline();
+            else setOffline(reason);
           };
           const markOnline = (model) => {
             if (!alive) return;
             if (probeStore.get().startingSince !== null) probeStore.set({ startingSince: null });
-            setState({ status: 'online', model });
+            setState({ status: 'online', model, reason: null });
             schedule(ONLINE_KEEPALIVE_MS, 0, true);
           };
           fetch(address + '/health', { signal: controller.signal })
             .then((response) => {
               if (!alive) return;
               if (!response.ok) {
-                retryOrOffline();
+                retryOrOffline('http:' + response.status);
                 return;
               }
               return response
@@ -1608,13 +1614,13 @@ window.__ModuleLoader__.load({
                 .then((payload) => markOnline(payload && payload.model ? String(payload.model) : null))
                 .catch(() => markOnline(null));
             })
-            .catch(retryOrOffline)
+            .catch((error) => retryOrOffline(error && error.name === 'AbortError' ? 'timeout' : 'unreachable'))
             .finally(() => {
               window.clearTimeout(timer);
             });
         };
-        const setOffline = () => {
-          setState({ status: 'offline', model: null });
+        const setOffline = (reason) => {
+          setState({ status: 'offline', model: null, reason: typeof reason === 'string' ? reason : 'unreachable' });
           schedule(OFFLINE_RETRY_MS, 0, true);
         };
         // Wait for typing to settle, so the address is not probed per keystroke.
@@ -1658,6 +1664,21 @@ window.__ModuleLoader__.load({
       probeStore.set({ tick: probeStore.get().tick + 1, startingSince: Date.now() });
     }
 
+    /** 状态下面那行小字：等待进度或失败原因。原因限制长度，避免撑破界面。 */
+    function statusDetail(t, status) {
+      if (status.waitingSeconds) {
+        return t('status.warming').replace('{s}', String(status.waitingSeconds));
+      }
+      if (status.status !== 'offline' || !status.reason) return null;
+      const reason = String(status.reason);
+      const text = reason.startsWith('http:')
+        ? t('status.reasonHttp').replace('{code}', reason.slice(5))
+        : reason === 'timeout'
+          ? t('status.reasonTimeout')
+          : t('status.reasonUnreachable');
+      return text.length > 70 ? text.slice(0, 70) + '…' : text;
+    }
+
     function EndpointField({ t }) {
       const avatar = useAvatar();
       const status = useCloneStatus(avatar.endpoint);
@@ -1684,9 +1705,6 @@ window.__ModuleLoader__.load({
           ),
         ),
         h('div', { className: 'dsav-endpointHint' }, t('engine.hint')),
-        status.waitingSeconds
-          ? h('div', { className: 'dsav-endpointHint dsav-warming' }, t('status.warming').replace('{s}', String(status.waitingSeconds)))
-          : null,
         status.status === 'offline' ? h('div', { className: 'dsav-endpointHint' }, t('endpoint.offlineHint')) : null,
       );
     }
@@ -2654,9 +2672,9 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'dsav-dot' }),
                 t('status.' + status.status) + (status.model ? ' · ' + status.model : ''),
               ),
-              status.waitingSeconds
-                ? h('span', { className: 'dsav-endpointHint dsav-warming' }, t('status.warming').replace('{s}', String(status.waitingSeconds)))
-                : null,
+              statusDetail(t, status) === null
+                ? null
+                : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
             )
           : null,
         h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
@@ -2714,7 +2732,7 @@ window.__ModuleLoader__.load({
 .dsav-selectFull{width:100%;max-width:none}
 .dsav-voiceTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dsav-voiceCount{white-space:nowrap}
-.dsav-warming{font-variant-numeric:tabular-nums}
+.dsav-warming{font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsav-select{box-sizing:border-box;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
 .dsav-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
 .dsav-dialogSmall{width:min(420px,100%)}
