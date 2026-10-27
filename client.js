@@ -128,7 +128,6 @@ window.__ModuleLoader__.load({
       'diag.lastError': '最近错误',
       'diag.none': '无',
       'dialog.title': '设置 AI 头像',
-      'dialog.pickHint': '在这里写 ID；要换图时再点下面的按钮。',
       'dialog.choose': '选择头像图片',
       'dialog.hint': '拖动图片调整位置，滚轮或滑块缩放。',
       'dialog.cancel': '取消',
@@ -225,7 +224,6 @@ window.__ModuleLoader__.load({
       'diag.lastError': 'Last error',
       'diag.none': 'none',
       'dialog.title': 'Assistant avatar',
-      'dialog.pickHint': 'Write the ID here; pick an image with the button below.',
       'dialog.choose': 'Choose avatar image',
       'dialog.hint': 'Drag to reposition; scroll or use the slider to zoom.',
       'dialog.cancel': 'Cancel',
@@ -1957,7 +1955,6 @@ window.__ModuleLoader__.load({
               avatar.engine === 'clone' ? h(ToneField, { t }) : null,
               avatar.engine === 'clone' ? h(RateField, { t }) : null,
               h(PresetBar, { t }),
-              h('div', { className: 'dsav-pickHint' }, t('dialog.pickHint')),
               h(
                 'div',
                 { className: 'dsav-actions' },
@@ -2683,7 +2680,6 @@ window.__ModuleLoader__.load({
 .dsav-input{box-sizing:border-box;width:100%;height:32px;padding:0 10px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px}
 .dsav-input::placeholder{color:var(--dsw-alias-label-tertiary)}
 .dsav-input:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
-.dsav-pickHint{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;margin-top:10px}
 .dsav-stage{position:relative;width:${STAGE}px;height:${STAGE}px;max-width:100%;margin:0 auto;border-radius:50%;overflow:hidden;background:var(--dsw-alias-bg-layer-2);cursor:grab;touch-action:none;user-select:none}
 .dsav-stage:active{cursor:grabbing}
 .dsav-stageImg{position:absolute;left:50%;top:50%;max-width:none;object-fit:fill;pointer-events:none;-webkit-user-drag:none}
