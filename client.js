@@ -513,7 +513,12 @@ window.__ModuleLoader__.load({
       speechRun.index = 0;
       speechRun.seek = null;
       try {
-        window.speechSynthesis.cancel();
+        const synth = window.speechSynthesis;
+        // Chromium 的已知毛病：cancel() 偶尔只清掉队列、当前这句继续念完。
+        // 先 pause 再 cancel，并补一次 cancel，确保真的停住。
+        synth.pause();
+        synth.cancel();
+        if (synth.speaking) synth.cancel();
       } catch {
         // An absent or failed engine simply leaves nothing playing.
       }
@@ -1472,18 +1477,44 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** 自动朗读的状态：baseline 是打开界面时已有的最后一轮，之前的不念。 */
-    const autoSpeechState = { baseline: null, spoken: null, pending: null, timer: null };
+    /**
+     * 自动朗读的状态。
+     * - 每个会话各记一条"基线"（打开自动朗读时已有的最新一轮），基线及更早的不念；
+     * - 基线要等这一批渲染结束再定，否则会把最新的那条当成"新回复"立刻念出来。
+     */
+    const autoSpeechState = { baselines: new Map(), highest: new Map(), settleTimers: new Map(), spoken: null, pending: null, timer: null };
 
     function scheduleAutoSpeech(turn, text, enabled, sessionId) {
-      if (!enabled || text === '' || turn === undefined) return;
-      const state = autoSpeechState;
-      if (state.baseline === null) {
-        state.baseline = turn;
+      if (!enabled) {
+        // 关掉再打开时重新取基线，别把中间那段时间的回复补念了。
+        autoSpeechState.baselines.clear();
+        autoSpeechState.highest.clear();
         return;
       }
-      if (turn <= state.baseline || turn === state.spoken) return;
-      state.pending = { turn, text };
+      if (text === '' || turn === undefined || sessionId === undefined) return;
+      const state = autoSpeechState;
+      const key = String(sessionId);
+
+      const seen = state.highest.get(key);
+      state.highest.set(key, seen === undefined ? turn : Math.max(seen, turn));
+
+      if (!state.baselines.has(key)) {
+        // 等这一批行都渲染完，再把这个会话当前最高的轮次定为基线。
+        const timer = state.settleTimers.get(key);
+        if (timer !== undefined) window.clearTimeout(timer);
+        state.settleTimers.set(
+          key,
+          window.setTimeout(() => {
+            state.settleTimers.delete(key);
+            state.baselines.set(key, state.highest.get(key));
+          }, 400),
+        );
+        return;
+      }
+
+      const baseline = state.baselines.get(key);
+      if (turn <= baseline || turn === state.spoken) return;
+      state.pending = { turn, text, sessionId };
       if (state.timer !== null) window.clearTimeout(state.timer);
       // 等一轮渲染稳定再念，避免同一轮被重复触发。
       state.timer = window.setTimeout(() => {
@@ -1492,7 +1523,7 @@ window.__ModuleLoader__.load({
         if (pending === null) return;
         state.pending = null;
         state.spoken = pending.turn;
-        startSpeech(pending.text, sessionId, pending.turn);
+        startSpeech(pending.text, pending.sessionId, pending.turn);
       }, 700);
     }
 
@@ -1517,10 +1548,13 @@ window.__ModuleLoader__.load({
         if (speechStore.get().status !== 'idle') return;
         scheduleAutoSpeech(turnNumber, replyText, true, sessionId);
       }, [turnNumber, replyText, avatar.autoSpeech, avatar.speech, sessionId]);
+      // 换会话（或这一轮已经不属于当前播放）时，把还在响的声音停掉：
+      // 之前只监听 sessionId 变化，有时状态已经切走、声音却还在播。
       React.useEffect(() => {
         const current = speechStore.get();
-        if (current.status === 'speaking' && current.sessionId !== sessionId) stopSpeech();
-      }, [sessionId]);
+        if (current.status === 'idle') return;
+        if (current.sessionId !== sessionId) stopSpeech();
+      }, [sessionId, speech.status, speech.sessionId]);
       if (turnProcess === undefined || node === undefined) return null;
       const location = node.location;
       const turn = location && (location.kind === 'turn' || location.kind === 'step') ? location.turn : undefined;
