@@ -362,6 +362,19 @@ window.__ModuleLoader__.load({
 
     /* --------------------------------------------------------------- speech */
 
+    /** 诊断：把一行信息发到宿主端，落到 ~/.dsh/storages/dsh-avatar-frame/debug.log。 */
+    function trace(message) {
+      try {
+        fetch('/dsh-avatar-frame/service', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'debug', message: String(message) }),
+        }).catch(() => {});
+      } catch {
+        // 忽略。
+      }
+    }
+
     let cachedVoices = [];
     /** 是否已经向浏览器要过一次列表（列表可能是空的，那就别再问了）。 */
     let voicesProbed = false;
@@ -794,11 +807,14 @@ window.__ModuleLoader__.load({
       // 先让界面进入「试听中」，再做需要 await 的准备工作：
       // 任何一步卡住都不会表现成"点了没反应"。
       publishSpeech('speaking');
+      trace('clone: start chunks=' + chunks.length + ' rate=' + speechRun.rate);
       try {
         // 音频上下文要在这次点击的手势里创建/恢复，晚了会被浏览器挂起。
-        await runningAudioContext();
+        const ctx = await runningAudioContext();
+        trace('clone: ctx=' + (ctx === null ? 'null' : ctx.state));
       } catch (error) {
         speechRun.error = String(error && error.message ? error.message : error);
+        trace('clone: ctx error ' + speechRun.error);
       }
       if (speechRun.token !== token) return;
       prefetchSpeech(0);
@@ -822,10 +838,13 @@ window.__ModuleLoader__.load({
           if (ctx === null) throw new Error('no audio context');
           if (ctx.state !== 'running') throw new Error('audio context is suspended: ' + ctx.state);
           const data = await result.arrayBuffer();
+          trace('clone: chunk ' + index + ' bytes=' + (data && data.byteLength));
           if (speechRun.token !== token) return;
           const buffer = await ctx.decodeAudioData(data);
+          trace('clone: decoded ' + index + ' duration=' + (buffer ? buffer.duration : 'n/a'));
           if (speechRun.token !== token) return;
           await playSpeechBuffer(buffer);
+          trace('clone: played ' + index);
           if (speechRun.token !== token) return;
           if (speechRun.seek !== null) {
             speechRun.index = speechRun.seek;
@@ -843,6 +862,7 @@ window.__ModuleLoader__.load({
           speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: speechRun.rate, error: speechRun.error, engine: null });
         }
       } catch (error) {
+        trace('clone: error ' + String(error && error.message ? error.message : error));
         if (speechRun.token !== token) return;
         speechRun.error = String(error && error.message ? error.message : error);
         console.warn('[dsh-avatar-frame] clone voice playback problem', error);
@@ -2621,8 +2641,11 @@ window.__ModuleLoader__.load({
             // 永远可点：状态可能残留成 speaking（没有对应行能停掉），
             // 点一下就先收干净再从头念，保证有反应。
             onClick: () => {
+              trace('audition: click received');
               stopSpeech();
-              speakClone(t('audition.text'), null, null);
+              const text = t('audition.text');
+              trace('audition: text=' + text.slice(0, 20) + ' engine=' + avatarStore.get().engine);
+              speakClone(text, null, null).catch((error) => trace('audition: unhandled ' + String(error)));
             },
             onMouseDown: (event) => event.stopPropagation(),
             onPointerDown: (event) => event.stopPropagation(),

@@ -15,8 +15,21 @@ import path from 'node:path';
 const ROUTE = '/dsh-avatar-frame/service';
 const STORE_DIR = path.join(os.homedir(), '.dsh', 'storages', 'dsh-avatar-frame');
 const STORE_FILE = path.join(STORE_DIR, 'service.json');
+const DEBUG_FILE = path.join(STORE_DIR, 'debug.log');
 
 const EMPTY_CONFIG = { command: '', cwd: '', env: '', autostart: false };
+
+/** 把客户端的诊断信息追加到 debug.log，方便排查"点了没反应"这类问题。 */
+function appendDebug(message) {
+  try {
+    fs.mkdirSync(STORE_DIR, { recursive: true });
+    fs.appendFileSync(DEBUG_FILE, new Date().toISOString() + ' ' + String(message) + '\n', 'utf8');
+    const lines = fs.readFileSync(DEBUG_FILE, 'utf8').split('\n');
+    if (lines.length > 300) fs.writeFileSync(DEBUG_FILE, lines.slice(-300).join('\n'), 'utf8');
+  } catch {
+    // 诊断写入失败不影响主流程。
+  }
+}
 
 function readConfig() {
   try {
@@ -302,6 +315,11 @@ function setup(ctx) {
       }
       const payload = await jsonBody(req);
       const action = String(payload.action || '');
+      if (action === 'debug') {
+        appendDebug(typeof payload.message === 'string' ? payload.message : JSON.stringify(payload));
+        send(res, 200, { ok: true });
+        return;
+      }
       if (action === 'start') {
         send(res, 200, { ...(await start()), state: state() });
         return;
