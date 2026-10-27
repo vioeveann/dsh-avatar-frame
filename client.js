@@ -737,6 +737,9 @@ window.__ModuleLoader__.load({
       return base64ToBlob(payload.base64, payload.contentType);
     }
 
+    /** 一旦直连失败过，就记住这个事实，后续直接走宿主代理，不再每段等超时。 */
+    let directTtsBroken = false;
+
     function requestSpeech(chunk, controller) {
       const avatar = avatarStore.get();
       const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
@@ -744,6 +747,14 @@ window.__ModuleLoader__.load({
       trace('tts: post ' + url + ' chunk=' + chunk.slice(0, 12));
       // 兜底超时：某些环境下请求会一直挂着（例如被浏览器的网络策略拦下），
       // 没有超时就永远不会有结果，界面表现为「点了没反应」。
+      if (directTtsBroken) {
+        trace('tts: direct disabled, going straight to host proxy');
+        return requestSpeechViaHost(chunk, avatar).catch((error) => {
+          trace('tts: host proxy failed ' + String(error && error.message));
+          throw error;
+        });
+      }
+
       let timedOut = false;
       const timer = typeof window.setTimeout === 'function'
         ? window.setTimeout(() => {
@@ -774,6 +785,7 @@ window.__ModuleLoader__.load({
           return blob;
         });
       }).catch(async (error) => {
+        directTtsBroken = true;
         trace('tts: direct failed (' + String(error && error.name) + ' ' + String(error && error.message) + ') -> host proxy');
         const blob = await requestSpeechViaHost(chunk, avatar);
         trace('tts: host proxy ok ' + blob.size);
@@ -1670,6 +1682,8 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         const current = speechStore.get();
         if (current.status === 'idle') return;
+        // 试听（sessionId 为 null）不属于任何会话，不能被聊天行停掉。
+        if (current.sessionId === null) return;
         if (current.sessionId !== sessionId) stopSpeech();
       }, [sessionId, speech.status, speech.sessionId]);
       if (turnProcess === undefined || node === undefined) return null;
