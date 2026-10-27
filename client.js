@@ -20,6 +20,7 @@ window.__ModuleLoader__.load({
     const SYSVOICE_KEY = 'dsh-avatar-frame/sysvoice/v1';
     const AUTO_SPEECH_KEY = 'dsh-avatar-frame/autospeech/v1';
     const VOLUME_KEY = 'dsh-avatar-frame/volume/v1';
+    const DEFAULT_VOLUME = 0.5;
     /**
      * The plugin ships no model, no reference audio, and no service: it only
      * calls a TTS endpoint the user runs. This is just the default address.
@@ -284,6 +285,15 @@ window.__ModuleLoader__.load({
       return Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(numeric)));
     }
 
+    /** 音量：没设置过就是 50%，显式存 0 才表示静音。 */
+    function readStoredVolume() {
+      const raw = readStored(VOLUME_KEY);
+      if (raw === null || raw === '') return DEFAULT_VOLUME;
+      const value = Number(raw);
+      if (!Number.isFinite(value)) return DEFAULT_VOLUME;
+      return Math.min(1, Math.max(0, value));
+    }
+
     function readStoredSize() {
       const raw = readStored(SIZE_KEY);
       return raw === null ? DEFAULT_SIZE : clampSize(raw);
@@ -309,7 +319,7 @@ window.__ModuleLoader__.load({
       tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
       sysVoice: readStored(SYSVOICE_KEY) || '',
       autoSpeech: readStored(AUTO_SPEECH_KEY) === '1',
-      volume: Number(readStored(VOLUME_KEY)) >= 0 ? Math.min(1, Math.max(0, Number(readStored(VOLUME_KEY)))) : 1,
+      volume: readStoredVolume(),
       lang: readStoredLang(),
     });
     let translate = (key) => key;
@@ -605,6 +615,7 @@ window.__ModuleLoader__.load({
       const target = Math.min(speechRun.chunks.length - 1, Math.max(0, speechRun.index + delta));
       if (speechRun.system) {
         speechRun.token += 1;
+        speechRun.paused = false;
         try {
           window.speechSynthesis.cancel();
         } catch {
@@ -1186,7 +1197,7 @@ window.__ModuleLoader__.load({
         tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
         sysVoice: readStored(SYSVOICE_KEY) || '',
         autoSpeech: readStored(AUTO_SPEECH_KEY) === '1',
-        volume: Number(readStored(VOLUME_KEY)) >= 0 ? Math.min(1, Math.max(0, Number(readStored(VOLUME_KEY)))) : 1,
+        volume: readStoredVolume(),
         lang: readStoredLang(),
       });
       presetStore.set({ items: readPresets() });
@@ -1277,6 +1288,35 @@ window.__ModuleLoader__.load({
 
     function useSpeech() {
       return React.useSyncExternalStore(speechStore.subscribe, speechStore.get, speechStore.get);
+    }
+
+    /**
+     * 聊天里每一轮都有一个行组件，它们只需要头像设置里的少数几项。
+     * 用字符串快照订阅，打字改 ID、调语速这些都不会牵动所有行。
+     */
+    function useRowAvatar() {
+      React.useSyncExternalStore(
+        avatarStore.subscribe,
+        () => {
+          const a = avatarStore.get();
+          return [a.id, a.size, a.speech ? 1 : 0, a.engine, a.autoSpeech ? 1 : 0, a.src === null ? 0 : a.src.length].join('|');
+        },
+        () => '',
+      );
+      return avatarStore.get();
+    }
+
+    /** 行组件关心的播放状态：进度变化不应该让所有行重渲染。 */
+    function useRowSpeech() {
+      React.useSyncExternalStore(
+        speechStore.subscribe,
+        () => {
+          const s = speechStore.get();
+          return [s.status, s.sessionId, s.turn, s.engine, s.error === null ? '' : 'e' + s.error.length].join('|');
+        },
+        () => '',
+      );
+      return speechStore.get();
     }
 
     function useStats() {
@@ -1435,7 +1475,7 @@ window.__ModuleLoader__.load({
     /** 自动朗读的状态：baseline 是打开界面时已有的最后一轮，之前的不念。 */
     const autoSpeechState = { baseline: null, spoken: null, pending: null, timer: null };
 
-    function scheduleAutoSpeech(turn, text, enabled) {
+    function scheduleAutoSpeech(turn, text, enabled, sessionId) {
       if (!enabled || text === '' || turn === undefined) return;
       const state = autoSpeechState;
       if (state.baseline === null) {
@@ -1452,7 +1492,7 @@ window.__ModuleLoader__.load({
         if (pending === null) return;
         state.pending = null;
         state.spoken = pending.turn;
-        startSpeech(pending.text, 'auto', pending.turn);
+        startSpeech(pending.text, sessionId, pending.turn);
       }, 700);
     }
 
@@ -1465,8 +1505,8 @@ window.__ModuleLoader__.load({
       const { node, turnProcess, t: hostT, useChat, sessionId } = props;
       // 语言按钮改的是插件自己的文案，这里把宿主的 t 换掉。
       const t = useT(hostT);
-      const avatar = useAvatar();
-      const speech = useSpeech();
+      const avatar = useRowAvatar();
+      const speech = useRowSpeech();
       const turnNumber = node !== undefined && node.data !== undefined ? node.data.turn : undefined;
       const answerStep =
         turnProcess !== undefined && turnProcess.spec !== undefined ? turnProcess.spec.answerStep : undefined;
@@ -1475,8 +1515,8 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         if (!avatar.speech || !avatar.autoSpeech) return;
         if (speechStore.get().status !== 'idle') return;
-        scheduleAutoSpeech(turnNumber, replyText, true);
-      }, [turnNumber, replyText, avatar.autoSpeech, avatar.speech]);
+        scheduleAutoSpeech(turnNumber, replyText, true, sessionId);
+      }, [turnNumber, replyText, avatar.autoSpeech, avatar.speech, sessionId]);
       React.useEffect(() => {
         const current = speechStore.get();
         if (current.status === 'speaking' && current.sessionId !== sessionId) stopSpeech();
@@ -2887,6 +2927,8 @@ window.__ModuleLoader__.load({
         h(PresetBar, { t }),
         h('div', { className: 'dsav-sectionTitle' }, t('section.speech')),
         h(SpeechToggle, { t }),
+        h(AutoSpeechField, { t }),
+        h(VolumeField, { t }),
         h(EngineField, { t }),
         avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
