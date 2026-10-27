@@ -98,6 +98,8 @@ window.__ModuleLoader__.load({
       'volume.label': '音量',
       'audition.label': '试听一句',
       'audition.stopHint': '正在朗读',
+      'audition.playing': '试听中 {n}/{m}',
+      'audition.failed': '试听失败',
       'audition.text': '程序启动，访问人，用户，你好！',
       'bar.label': '朗读控制',
       'bar.pause': '暂停',
@@ -201,6 +203,8 @@ window.__ModuleLoader__.load({
       'volume.label': 'Volume',
       'audition.label': 'Preview',
       'audition.stopHint': 'Reading…',
+      'audition.playing': 'Previewing {n}/{m}',
+      'audition.failed': 'Preview failed',
       'audition.text': 'Program initializing. Accessor: user.',
       'bar.label': 'Read-aloud controls',
       'bar.pause': 'Pause',
@@ -2569,19 +2573,32 @@ window.__ModuleLoader__.load({
     function AuditionButton({ t }) {
       const speech = useSpeech();
       const busy = speech.status === 'speaking' || speech.status === 'paused';
+      const failed = !busy && speech.error;
+      const hint = busy
+        ? t('audition.playing').replace('{n}', String(speech.index + 1)).replace('{m}', String(speech.total))
+        : failed
+          ? t('audition.failed') + '：' + String(speech.error).slice(0, 60)
+          : null;
       return h(
-        'button',
-        {
-          type: 'button',
-          className: 'dsav-btn dsav-audition',
-          // 永远可点：状态可能残留成 speaking（没有对应行能停掉），
-          // 点一下就先收干净再从头念，保证有反应。
-          onClick: () => {
-            stopSpeech();
-            speakClone(t('audition.text'), null, null);
+        Fragment,
+        null,
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'dsav-btn dsav-audition',
+            // 永远可点：状态可能残留成 speaking（没有对应行能停掉），
+            // 点一下就先收干净再从头念，保证有反应。
+            onClick: () => {
+              stopSpeech();
+              speakClone(t('audition.text'), null, null);
+            },
           },
-        },
-        t('audition.label'),
+          t('audition.label'),
+        ),
+        hint === null
+          ? null
+          : h('span', { className: failed ? 'dsav-endpointHint dsav-auditionError' : 'dsav-endpointHint' }, hint),
       );
     }
 
@@ -3052,6 +3069,7 @@ window.__ModuleLoader__.load({
 .dsav-voiceCount{white-space:nowrap}
 .dsav-warming{font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsav-muted{opacity:.5}
+.dsav-auditionError{color:var(--dsw-alias-label-error, #c0392b);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsav-volume{display:flex;align-items:center;gap:8px;min-width:160px}
 .dsav-volume .dsav-range{margin:0;flex:1}
 .dsav-volumeValue{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
