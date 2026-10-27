@@ -81,6 +81,7 @@ window.__ModuleLoader__.load({
       'status.checking': '检测中',
       'status.online': '已连接',
       'status.offline': '未连接',
+      'status.warming': '正在启动语音服务，已等待 {s} 秒（模型加载通常要 10–30 秒）',
       'endpoint.offlineHint': '连不上时先确认语音服务已经启动；启动后这里每 2.5 秒自动重试，不用刷新。',
       'tone.label': '语气',
       'tone.calm': '平稳',
@@ -177,6 +178,7 @@ window.__ModuleLoader__.load({
       'status.checking': 'Checking',
       'status.online': 'Connected',
       'status.offline': 'Not connected',
+      'status.warming': 'Starting the speech service — {s}s elapsed (model loading usually takes 10–30s)',
       'endpoint.offlineHint': 'Start your TTS service first; this dot retries every 2.5 seconds and reconnects on its own.',
       'tone.label': 'Tone',
       'tone.calm': 'Calm',
@@ -298,7 +300,7 @@ window.__ModuleLoader__.load({
     const dialogStore = createStore({ open: false, mode: 'idle', draft: null });
     const statsStore = createStore({ lastMs: null });
     /** 计数器：每次 +1 让健康检查重新探一次（启动服务后立刻刷新状态）。 */
-    const probeStore = createStore({ tick: 0 });
+    const probeStore = createStore({ tick: 0, startingSince: null });
     const speechStore = createStore({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: DEFAULT_RATE, error: null, engine: null });
 
     function persist(key, value) {
@@ -1551,7 +1553,9 @@ window.__ModuleLoader__.load({
     /** Live reachability of the user's own service, so a blank voice is explainable. */
     function useCloneStatus(endpoint) {
       const [state, setState] = React.useState({ status: 'checking', model: null });
-      const tick = React.useSyncExternalStore(probeStore.subscribe, probeStore.get, probeStore.get).tick;
+      const probe = React.useSyncExternalStore(probeStore.subscribe, probeStore.get, probeStore.get);
+      const tick = probe.tick;
+      const startingSince = probe.startingSince;
       React.useEffect(() => {
         const address = (endpoint || '').trim().replace(/\/+$/, '') || DEFAULT_ENDPOINT;
         let alive = true;
@@ -1575,11 +1579,20 @@ window.__ModuleLoader__.load({
           const timer = window.setTimeout(() => controller.abort(), 4000);
           const retryOrOffline = () => {
             if (!alive) return;
+            const since = probeStore.get().startingSince;
+            const warming = since !== null && Date.now() - since < SERVICE_WARMUP_MS;
+            if (warming) {
+              // 暖机期：服务大概率还在加载模型，保持「检测中」，别显示「未连接」。
+              setState({ status: 'checking', model: null });
+              schedule(1200, 0, true);
+              return;
+            }
             if (attempt < 1) schedule(TRANSIENT_RETRY_MS, attempt + 1, silent);
             else setOffline();
           };
           const markOnline = (model) => {
             if (!alive) return;
+            if (probeStore.get().startingSince !== null) probeStore.set({ startingSince: null });
             setState({ status: 'online', model });
             schedule(ONLINE_KEEPALIVE_MS, 0, true);
           };
@@ -1615,13 +1628,34 @@ window.__ModuleLoader__.load({
           if (retryTimer !== null) window.clearTimeout(retryTimer);
           if (controller !== null) controller.abort();
         };
-      }, [endpoint, tick]);
-      return state;
+      }, [endpoint, tick, startingSince]);
+
+      // 等待期间每秒重渲染一次，让「已等待 N 秒」走起来。
+      const [nowTick, setNowTick] = React.useState(0);
+      React.useEffect(() => {
+        if (startingSince === null) return undefined;
+        const timer = window.setInterval(() => setNowTick((value) => value + 1), 1000);
+        return () => window.clearInterval(timer);
+      }, [startingSince]);
+
+      const warming = startingSince !== null && Date.now() - startingSince < SERVICE_WARMUP_MS;
+      return warming && state.status !== 'online'
+        ? { status: 'checking', model: null, waitingSeconds: Math.max(1, Math.round((Date.now() - startingSince) / 1000)) }
+        : state;
     }
 
     /** 让健康检查立刻再探一次。 */
     function recheckService() {
       probeStore.set({ tick: probeStore.get().tick + 1 });
+    }
+
+    /**
+     * 点了「启动服务」之后调用：进入暖机期。
+     * 模型加载要十几秒，这段时间探测必然失败，但不能因此显示「未连接」把人吓走。
+     */
+    const SERVICE_WARMUP_MS = 25000;
+    function beginServiceWarmup() {
+      probeStore.set({ tick: probeStore.get().tick + 1, startingSince: Date.now() });
     }
 
     function EndpointField({ t }) {
@@ -1650,6 +1684,9 @@ window.__ModuleLoader__.load({
           ),
         ),
         h('div', { className: 'dsav-endpointHint' }, t('engine.hint')),
+        status.waitingSeconds
+          ? h('div', { className: 'dsav-endpointHint dsav-warming' }, t('status.warming').replace('{s}', String(status.waitingSeconds)))
+          : null,
         status.status === 'offline' ? h('div', { className: 'dsav-endpointHint' }, t('endpoint.offlineHint')) : null,
       );
     }
@@ -2405,7 +2442,7 @@ window.__ModuleLoader__.load({
               setMessage(t('service.' + action + 'Done'));
             }
             if (action === 'start') {
-              window.setTimeout(recheckService, 1500);
+              beginServiceWarmup();
               // 进程若几秒内就退出，把它的输出取回来给用户看。
               window.setTimeout(load, 3000);
             }
@@ -2617,6 +2654,9 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'dsav-dot' }),
                 t('status.' + status.status) + (status.model ? ' · ' + status.model : ''),
               ),
+              status.waitingSeconds
+                ? h('span', { className: 'dsav-endpointHint dsav-warming' }, t('status.warming').replace('{s}', String(status.waitingSeconds)))
+                : null,
             )
           : null,
         h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
@@ -2674,6 +2714,7 @@ window.__ModuleLoader__.load({
 .dsav-selectFull{width:100%;max-width:none}
 .dsav-voiceTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dsav-voiceCount{white-space:nowrap}
+.dsav-warming{font-variant-numeric:tabular-nums}
 .dsav-select{box-sizing:border-box;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
 .dsav-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
 .dsav-dialogSmall{width:min(420px,100%)}
