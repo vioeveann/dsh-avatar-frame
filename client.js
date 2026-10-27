@@ -869,6 +869,9 @@ window.__ModuleLoader__.load({
       };
       publishSystem(speechRun.paused ? 'paused' : 'speaking');
       try {
+        // 之前 stopSpeech 里 pause 过，Chromium 会一直保持暂停态；
+        // 不 resume 的话新句子只入队不出声。
+        synth.resume();
         synth.speak(utterance);
       } catch {
         speechRun.system = false;
@@ -950,8 +953,9 @@ window.__ModuleLoader__.load({
       }
       utterance.rate = Math.min(1.3, Math.max(0.7, Number(avatarStore.get().rate) || 1));
       utterance.pitch = 1;
-      utterance.volume = 1;
+      utterance.volume = Math.min(1, Math.max(0, Number(avatarStore.get().volume)));
       window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
       window.speechSynthesis.speak(utterance);
     }
 
@@ -2570,10 +2574,14 @@ window.__ModuleLoader__.load({
         {
           type: 'button',
           className: 'dsav-btn dsav-audition',
-          disabled: busy,
-          onClick: () => speakClone(t('audition.text'), null, null),
+          // 永远可点：状态可能残留成 speaking（没有对应行能停掉），
+          // 点一下就先收干净再从头念，保证有反应。
+          onClick: () => {
+            stopSpeech();
+            speakClone(t('audition.text'), null, null);
+          },
         },
-        busy ? t('audition.stopHint') : t('audition.label'),
+        t('audition.label'),
       );
     }
 
