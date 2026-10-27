@@ -97,13 +97,13 @@ window.__ModuleLoader__.load({
       'section.speech': '朗读',
       'section.service': '语音服务',
       'section.diagnostics': '诊断',
-      'service.title': '服务进程',
+      'service.onlyForLocal': '这一段只对「本地服务」生效；进程还在跑，所以留一个停止入口。',
       'service.running': '运行中',
       'service.stopped': '未运行',
       'service.external': '端口上已有服务（非本插件启动）',
       'service.start': '启动服务',
       'service.stop': '停止服务',
-      'service.autostart': '随 DSH 启动',
+      'service.autostart': 'DSH 启动时拉起语音服务',
       'service.configure': '启动配置',
       'service.command': '启动命令',
       'service.commandPlaceholder': '例如 "C:\\Python\\python.exe" server.py',
@@ -189,13 +189,13 @@ window.__ModuleLoader__.load({
       'section.speech': 'Read aloud',
       'section.service': 'Speech service',
       'section.diagnostics': 'Diagnostics',
-      'service.title': 'Service process',
+      'service.onlyForLocal': 'This section applies to the local service only; the process is still running, so the stop button stays here.',
       'service.running': 'Running',
       'service.stopped': 'Stopped',
       'service.external': 'A service is already listening (started outside the plugin)',
       'service.start': 'Start service',
       'service.stop': 'Stop service',
-      'service.autostart': 'Start with DSH',
+      'service.autostart': 'Start the speech service with DSH',
       'service.configure': 'Launch settings',
       'service.command': 'Command',
       'service.commandPlaceholder': 'e.g. "C:\\Python\\python.exe" server.py',
@@ -2010,8 +2010,7 @@ window.__ModuleLoader__.load({
         h(RateField, { t }),
         avatar.engine === 'clone' ? h(AuditionButton, { t }) : null,
         h(PresetBar, { t }),
-        h('div', { className: 'dsav-sectionTitle' }, t('section.service')),
-        h(ServiceControl, { t, online: status.status === 'online' }),
+        h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
         h('div', { className: 'dsav-bundleHint' }, t('bundle.hint')),
       );
     }
@@ -2187,7 +2186,7 @@ window.__ModuleLoader__.load({
     const EMPTY_SERVICE_CONFIG = { command: '', cwd: '', env: '', autostart: false };
 
     /** 语音服务：手动启动/停止、随 DSH 启动、启动命令配置。 */
-    function ServiceControl({ t, online }) {
+    function ServiceControl({ t, online, engine }) {
       const [ready, setReady] = React.useState(false);
       const [available, setAvailable] = React.useState(true);
       const [running, setRunning] = React.useState(false);
@@ -2261,14 +2260,15 @@ window.__ModuleLoader__.load({
           .finally(() => setBusy(''));
       };
 
-      if (!ready) {
-        return h('div', { className: 'dsav-service' }, h('div', { className: 'dsav-sectionTitle' }, t('service.title')));
-      }
+      // 先拿到宿主端状态再决定显示什么：音色是「系统语音」时这块默认整段隐藏，
+      // 但进程还在跑、或者开着「随 DSH 启动」时仍要露出来，否则用户没有收尾的入口。
+      if (!ready) return null;
+      if (engine !== 'clone' && !running && !config.autostart) return null;
       if (!available) {
         return h(
           'div',
           { className: 'dsav-service' },
-          h('div', { className: 'dsav-sectionTitle' }, t('service.title')),
+          h('div', { className: 'dsav-sectionTitle' }, t('section.service')),
           h('div', { className: 'dsav-endpointHint' }, t('service.unavailable')),
         );
       }
@@ -2276,7 +2276,8 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         { className: 'dsav-service' },
-        h('div', { className: 'dsav-sectionTitle' }, t('service.title')),
+        h('div', { className: 'dsav-sectionTitle' }, t('section.service')),
+        engine === 'clone' ? null : h('div', { className: 'dsav-endpointHint' }, t('service.onlyForLocal')),
         h(
           'div',
           { className: 'dsav-serviceRow' },
@@ -2286,16 +2287,18 @@ window.__ModuleLoader__.load({
             h('span', { className: 'dsav-dot' }),
             running ? t('service.running') : online ? t('service.external') : t('service.stopped'),
           ),
-          h(
-            'button',
-            {
-              type: 'button',
-              className: 'dsav-btn',
-              disabled: busy !== '' || running || online,
-              onClick: () => act('start'),
-            },
-            t('service.start'),
-          ),
+          engine === 'clone'
+            ? h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dsav-btn',
+                  disabled: busy !== '' || running || online,
+                  onClick: () => act('start'),
+                },
+                t('service.start'),
+              )
+            : null,
           h(
             'button',
             {
@@ -2457,14 +2460,13 @@ window.__ModuleLoader__.load({
               ),
             )
           : null,
-        h('div', { className: 'dsav-sectionTitle' }, t('section.service')),
-        h(ServiceControl, { t, online: status.status === 'online' }),
+        h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
         h('div', { className: 'dsav-sectionTitle' }, t('section.diagnostics')),
         h(
           'div',
           { className: 'dsav-diagnostics' },
-          h('div', null, t('diag.service') + ': ' + t('status.' + status.status)),
-          stats.lastMs === null ? null : h('div', null, t('diag.latency') + ': ' + Math.round(stats.lastMs) + ' ms'),
+          avatar.engine === 'clone' ? h('div', null, t('diag.service') + ': ' + t('status.' + status.status)) : null,
+          avatar.engine !== 'clone' || stats.lastMs === null ? null : h('div', null, t('diag.latency') + ': ' + Math.round(stats.lastMs) + ' ms'),
           speech.status === 'idle' ? null : h('div', null, t('diag.progress') + ': ' + (speech.index + 1) + ' / ' + speech.total),
           h(
             'div',

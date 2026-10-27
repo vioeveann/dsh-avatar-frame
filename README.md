@@ -36,7 +36,7 @@
 **其他**
 
 - 设置 → **角色头像**：头像、ID、字号、预设、朗读、引擎、语气、语速、服务地址、试听、诊断都在这页；
-- **语音服务进程**：一键启动/停止你自己配置的服务进程，可勾选「随 DSH 启动」（设置页与插件详情页都能操作）；
+- **语音服务进程**：一键启动/停止你自己配置的服务进程，可勾选「DSH 启动时拉起语音服务」（设置页与插件详情页都能操作）；切到「系统语音」时整块自动隐藏，进程仍在跑或开着自启时例外；
 - 诊断信息：服务状态与模型名、上一句合成耗时、播放进度、最近一次错误；
 - **界面语言可切换**：中文 / English 两个按钮，放在插件详情页、设置 → 角色头像、点头像弹出的面板三处；选择只记在本机，刷新/重启后保持；
 - 所有数据只在本机 `localStorage`，不上传、不联网（除非你把服务地址指向远程）。
@@ -70,7 +70,7 @@
 
 插件本身**不下载模型、不附带参考音频、不启动任何服务**。它只做两件事：用系统语音读，或者调用你给的 HTTP 服务。
 
-默认地址 `http://127.0.0.1:8123`，可在面板、插件详情页或设置页修改，旁边会显示「已连接 / 未连接」的实时状态。服务不可用时会自动退回系统语音，状态点**每 8 秒自动重试一次**，起好服务后不用刷新。
+默认地址 `http://127.0.0.1:8123`，可在面板、插件详情页或设置页修改，旁边会显示「已连接 / 未连接」的实时状态。服务不可用时会自动退回系统语音；状态点在离线时**每 2.5 秒重试一次**，连上后每 30 秒静默保活一次，中途挂掉也会自己变红。
 
 **先用一个示例跑通**：仓库里带了一个最小实现，用微软 Edge 的在线语音：
 
@@ -84,7 +84,7 @@ python examples/simple_tts.py          # 监听 127.0.0.1:8123
 **一键启动服务（可选）**：插件的宿主端可以替你启动那个进程，入口两处——**设置 → 角色头像 → 语音服务**，以及**插件详情页**的同名区块。
 
 - 「启动服务 / 停止服务」：执行你填的那条命令；
-- 「随 DSH 启动」：DSH 启动时自动把它拉起来（不是开机自启）；
+- 「DSH 启动时拉起语音服务」：DSH 启动时自动把它拉起来（不是开机自启）；
 - 「启动配置」里填：**启动命令**、**工作目录**、**环境变量**（每行 `KEY=VALUE`）。
 
 ```
@@ -98,7 +98,7 @@ python examples/simple_tts.py          # 监听 127.0.0.1:8123
 几点要说清楚：
 
 - 命令是**你自己填的**，插件不附带任何服务；它只是替你执行、托管这个子进程；
-- 进程生命周期跟随 DSH：DSH 退出时它会被一起收掉；「随 DSH 启动」只在 DSH 启动时执行一次；
+- 进程生命周期跟随 DSH：DSH 退出时它会被一起收掉；「DSH 启动时拉起语音服务」只在 DSH 启动时执行一次；
 - 端口上已经有服务在跑时（比如你手动开的），插件会显示「端口上已有服务（非本插件启动）」，不会重复启动；
 - 宿主端代码在 DSH 启动时加载，**安装或升级插件后要重启一次 DSH**，这一块才可用；界面会提示「宿主端未加载」。
 
@@ -253,7 +253,7 @@ Point the plugin at `http://127.0.0.1:8123` and click the speaker. To use your o
 **One-click service start (optional).** The host half can launch the process for you; the same block exists in **Settings → Character avatar → Speech service** and on the plugin page:
 
 - Start / Stop service — runs the command you configure;
-- Start with DSH — launches it once at DSH startup (not an OS autostart);
+- Start the speech service with DSH — launches it once at DSH startup (not an OS autostart);
 - Launch settings — the command, the working directory, and `KEY=VALUE` environment lines.
 
 The command is yours: the plugin does not ship a service, it only executes and supervises that child process. Its lifetime follows DSH, and if something is already listening the plugin says so instead of starting a second copy.
