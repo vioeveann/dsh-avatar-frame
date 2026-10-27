@@ -2612,6 +2612,24 @@ window.__ModuleLoader__.load({
           }),
         ),
         h(FontSizeField, { t }),
+        h(PresetBar, { t }),
+        h(SpeechSettings, { t, status }),
+        h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
+        h(DiagnosticsBlock, { t, status }),
+        h('div', { className: 'dsav-bundleHint' }, t('bundle.hint')),
+      );
+    }
+
+    /**
+     * 朗读相关的整块设置：设置页与插件详情页共用。
+     * 以前两边各写一份，改了一边另一边就落后；现在只维护这里。
+     */
+    function SpeechSettings({ t, status }) {
+      const avatar = useAvatar();
+      return h(
+        Fragment,
+        null,
+        h('div', { className: 'dsav-sectionTitle' }, t('section.speech')),
         h(SpeechToggle, { t }),
         h(AutoSpeechField, { t }),
         h(VolumeField, { t }),
@@ -2619,10 +2637,48 @@ window.__ModuleLoader__.load({
         avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
         h(RateField, { t }),
-        h(AuditionButton, { t }),
-        h(PresetBar, { t }),
-        h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
-        h('div', { className: 'dsav-bundleHint' }, t('bundle.hint')),
+        h(
+          'div',
+          { className: 'dsav-sectionRow' },
+          h(AuditionButton, { t }),
+          h(
+            'span',
+            { className: 'dsav-statusLine' },
+            h(
+              'span',
+              { className: 'dsav-state dsav-state-' + status.status },
+              h('span', { className: 'dsav-dot' }),
+              t('status.' + status.status) + (status.model ? ' · ' + status.model : ''),
+            ),
+            statusDetail(t, status) === null
+              ? null
+              : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
+          ),
+        ),
+      );
+    }
+
+    /** 诊断信息：两个页面共用。 */
+    function DiagnosticsBlock({ t, status }) {
+      const avatar = useAvatar();
+      const speech = useSpeech();
+      const stats = useStats();
+      return h(
+        Fragment,
+        null,
+        h('div', { className: 'dsav-sectionTitle' }, t('section.diagnostics')),
+        h(
+          'div',
+          { className: 'dsav-diagnostics' },
+          avatar.engine === 'clone' ? h('div', null, t('diag.service') + ': ' + t('status.' + status.status)) : null,
+          avatar.engine !== 'clone' || stats.lastMs === null ? null : h('div', null, t('diag.latency') + ': ' + Math.round(stats.lastMs) + ' ms'),
+          speech.status === 'idle' ? null : h('div', null, t('diag.progress') + ': ' + (speech.index + 1) + ' / ' + speech.total),
+          h(
+            'div',
+            { className: speech.error ? 'dsav-diagError' : undefined },
+            t('diag.lastError') + ': ' + (speech.error || t('diag.none')),
+          ),
+        ),
       );
     }
 
@@ -3125,9 +3181,7 @@ window.__ModuleLoader__.load({
     function SettingsSection({ t: hostT }) {
       const t = useT(hostT);
       const avatar = useAvatar();
-      const speech = useSpeech();
       const status = useCloneStatus(avatar.endpoint);
-      const stats = useStats();
       return h(
         'div',
         { className: 'dsav-section' },
@@ -3168,46 +3222,9 @@ window.__ModuleLoader__.load({
         ),
         h(FontSizeField, { t }),
         h(PresetBar, { t }),
-        h('div', { className: 'dsav-sectionTitle' }, t('section.speech')),
-        h(SpeechToggle, { t }),
-        h(AutoSpeechField, { t }),
-        h(VolumeField, { t }),
-        h(EngineField, { t }),
-        avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
-        avatar.engine === 'clone' ? h(ToneField, { t }) : null,
-        h(RateField, { t }),
-        h(
-              'div',
-              { className: 'dsav-sectionRow' },
-              h(AuditionButton, { t }),
-              h(
-                'span',
-                { className: 'dsav-statusLine' },
-                h(
-                  'span',
-                  { className: 'dsav-state dsav-state-' + status.status },
-                  h('span', { className: 'dsav-dot' }),
-                  t('status.' + status.status) + (status.model ? ' · ' + status.model : ''),
-                ),
-                statusDetail(t, status) === null
-                  ? null
-                  : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
-              ),
-            ),
+        h(SpeechSettings, { t, status }),
         h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
-        h('div', { className: 'dsav-sectionTitle' }, t('section.diagnostics')),
-        h(
-          'div',
-          { className: 'dsav-diagnostics' },
-          avatar.engine === 'clone' ? h('div', null, t('diag.service') + ': ' + t('status.' + status.status)) : null,
-          avatar.engine !== 'clone' || stats.lastMs === null ? null : h('div', null, t('diag.latency') + ': ' + Math.round(stats.lastMs) + ' ms'),
-          speech.status === 'idle' ? null : h('div', null, t('diag.progress') + ': ' + (speech.index + 1) + ' / ' + speech.total),
-          h(
-            'div',
-            { className: speech.error ? 'dsav-diagError' : undefined },
-            t('diag.lastError') + ': ' + (speech.error || t('diag.none')),
-          ),
-        ),
+        h(DiagnosticsBlock, { t, status }),
       );
     }
 
