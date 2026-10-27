@@ -555,7 +555,12 @@ window.__ModuleLoader__.load({
       if (ctx === null) return null;
       if (ctx.state !== 'running') {
         try {
-          await ctx.resume();
+          // 有些环境下 resume() 会一直挂起（没有用户手势、被策略拦住），
+          // 不能无限等——最多等 1.5 秒，之后照常返回，由播放层判断。
+          await Promise.race([
+            ctx.resume(),
+            new Promise((resolve) => window.setTimeout(resolve, 1500)),
+          ]);
         } catch {
           // 恢复失败就按失败处理，让界面显示原因。
         }
@@ -773,9 +778,6 @@ window.__ModuleLoader__.load({
      */
     async function speakClone(text, sessionId, turn) {
       stopSpeech();
-      // Prime the audio graph inside the click itself; creating it after the
-      // first await would land outside the gesture and stay suspended.
-      await runningAudioContext();
       const token = speechRun.token;
       const chunks = splitSpeech(text);
       if (chunks.length === 0) return;
@@ -789,7 +791,16 @@ window.__ModuleLoader__.load({
       speechRun.turn = turn;
       speechRun.error = null;
       speechRun.controller = new AbortController();
+      // 先让界面进入「试听中」，再做需要 await 的准备工作：
+      // 任何一步卡住都不会表现成"点了没反应"。
       publishSpeech('speaking');
+      try {
+        // 音频上下文要在这次点击的手势里创建/恢复，晚了会被浏览器挂起。
+        await runningAudioContext();
+      } catch (error) {
+        speechRun.error = String(error && error.message ? error.message : error);
+      }
+      if (speechRun.token !== token) return;
       prefetchSpeech(0);
       let played = 0;
       try {
@@ -2611,6 +2622,8 @@ window.__ModuleLoader__.load({
               stopSpeech();
               speakClone(t('audition.text'), null, null);
             },
+            onMouseDown: (event) => event.stopPropagation(),
+            onPointerDown: (event) => event.stopPropagation(),
           },
           t('audition.label'),
         ),
