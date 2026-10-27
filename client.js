@@ -2377,6 +2377,11 @@ window.__ModuleLoader__.load({
               h(VolumeField, { t }),
               h(EngineField, { t }),
               avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
+              h(
+                'div',
+                { className: 'dsav-sectionRow dsav-auditionRow' },
+                h(AuditionButton, { t }),
+              ),
               avatar.engine === 'clone' ? h(ToneField, { t }) : null,
               avatar.engine === 'clone' ? h(RateField, { t }) : null,
               h(PresetBar, { t }),
@@ -2593,7 +2598,7 @@ window.__ModuleLoader__.load({
         avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
         h(RateField, { t }),
-        avatar.engine === 'clone' ? h(AuditionButton, { t }) : null,
+        h(AuditionButton, { t }),
         h(PresetBar, { t }),
         h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
         h('div', { className: 'dsav-bundleHint' }, t('bundle.hint')),
@@ -2737,11 +2742,15 @@ window.__ModuleLoader__.load({
             // 永远可点：状态可能残留成 speaking（没有对应行能停掉），
             // 点一下就先收干净再从头念，保证有反应。
             onClick: () => {
-              trace('audition: click received');
-              stopSpeech();
               const text = t('audition.text');
-              trace('audition: text=' + text.slice(0, 20) + ' engine=' + avatarStore.get().engine);
-              speakClone(text, null, null).catch((error) => trace('audition: unhandled ' + String(error)));
+              const engine = avatarStore.get().engine;
+              trace('audition: click received engine=' + engine + ' text=' + text.slice(0, 20));
+              stopSpeech();
+              if (engine === 'clone') {
+                speakClone(text, null, null).catch((error) => trace('audition: unhandled ' + String(error)));
+              } else {
+                auditionSystemVoice();
+              }
             },
             onMouseDown: (event) => event.stopPropagation(),
             onPointerDown: (event) => event.stopPropagation(),
@@ -3144,8 +3153,7 @@ window.__ModuleLoader__.load({
         avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
         h(RateField, { t }),
-        avatar.engine === 'clone'
-          ? h(
+        h(
               'div',
               { className: 'dsav-sectionRow' },
               h(AuditionButton, { t }),
@@ -3162,8 +3170,7 @@ window.__ModuleLoader__.load({
                   ? null
                   : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
               ),
-            )
-          : null,
+            ),
         h(ServiceControl, { t, online: status.status === 'online', engine: avatar.engine }),
         h('div', { className: 'dsav-sectionTitle' }, t('section.diagnostics')),
         h(
@@ -3318,6 +3325,7 @@ window.__ModuleLoader__.load({
 .dsav-sectionTitle{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);margin-top:6px}
 .dsav-sectionRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dsav-statusLine{display:inline-flex;align-items:center;gap:8px;min-width:0;flex:1}
+.dsav-auditionRow{margin-top:12px}
 .dsav-statusLine .dsav-endpointHint{margin-top:0;flex:0 1 auto;min-width:0}
 .dsav-sectionPreview{width:44px;height:44px;border-radius:50%;overflow:hidden;flex:none;background:var(--dsw-alias-bg-l2);display:inline-flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-tertiary)}
 .dsav-sectionPreview img{width:100%;height:100%;object-fit:cover}
