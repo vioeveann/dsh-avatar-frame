@@ -29,8 +29,8 @@
 - 播放控制条：朗读时接在小喇叭右侧，可暂停/继续、上一句/下一句、五档语速（0.95× / 1.00× / 1.05× / 1.10× / 1.15×）、停止——**两种引擎都支持**；
 - 音量滑块（0–100%，**默认 50%**）；
 - 语气三档：平稳 / 自然 / 活泼，随请求发给你的服务；
-- 试听：不用回到聊天，在设置里直接试一句；
-- 失败提示：某句合成失败时，小喇叭旁出现红点，悬停可看原因；
+- 试听：不用回到聊天——设置页、插件详情页、点头像弹出的面板里都能直接试一句（两种引擎都支持）；
+- 失败提示：某句合成失败时，小喇叭旁出现红点，悬停可看原因；试听失败时按钮旁会直接显示简短原因；
 - 长回复按句切分、提前两段预生成，句间不卡顿。
 
 ![朗读时小喇叭右侧的控制条](docs/images/bar.png)
@@ -38,7 +38,8 @@
 **其他**
 
 - 设置 → **角色头像**：头像、ID、字号、预设、朗读、引擎、语气、语速、服务地址、试听、诊断都在这页；
-- **语音服务进程**：一键启动/停止你自己配置的服务进程，可勾选「DSH 启动时拉起语音服务」（设置页与插件详情页都能操作）；切到「系统语音」时整块自动隐藏，进程仍在跑或开着自启时例外；
+- **语音服务进程**：一键启动 / 停止 / **重启**你自己配置的服务进程，可勾选「DSH 启动时拉起语音服务」（设置页与插件详情页内容完全一致）；切到「系统语音」时整块自动隐藏，进程仍在跑或开着自启时例外；
+- **状态跟着过程走**：点启动后先显示「检测中 · 已等待 N 秒（模型加载通常 10–30 秒）」，连上即变「已连接」；超过 25 秒仍未连上才显示「未连接」，并给出简短原因（超时 / 连不上 / 服务返回 HTTP 码）；
 - 诊断信息：服务状态与模型名、上一句合成耗时、播放进度、最近一次错误；
 - **界面语言可切换**：中文 / English 两个按钮，放在插件详情页、设置 → 角色头像、点头像弹出的面板三处；选择只记在本机，刷新/重启后保持；
 - 所有数据只在本机 `localStorage`，不上传、不联网（除非你把服务地址指向远程）。
@@ -127,6 +128,8 @@ POST /tts
 
 需要允许 CORS（`Access-Control-Allow-Origin: *` 并响应 `OPTIONS` 预检）。`tone` 是建议值，不认识就忽略；`speed` 范围 0.7–1.3。
 
+**试听没声音时**：插件会先直连你填的地址，1.5 秒内没有响应就自动改由 DSH 宿主进程转发（日志在 `~/.dsh/storages/dsh-avatar-frame/debug.log`）。设置页的试听按钮旁会显示「试听中 n/m」或失败原因。
+
 **启动失败时先看这一条**：设置页「启动配置」下面会显示进程退出前的输出。如果看到
 
 ```
@@ -212,14 +215,15 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 - Two engines: the system voice, or your own local service;
 - Playback bar beside the speaker: pause/resume, previous/next sentence, five speeds (0.95×–1.15×), stop;
 - Three tone presets (calm / natural / lively) sent to your service;
-- Preview the voice from the settings page without touching the chat;
-- Failure dot next to the speaker with the reason on hover;
+- Preview the voice from the settings page, the plugin page or the avatar panel — both engines supported;
+- Failure dot next to the speaker with the reason on hover; a failed preview shows a short reason next to the button;
 - Long replies are split by sentence and pre-generated two chunks ahead, so playback stays continuous.
 
 **The rest**
 
 - Settings → **Character avatar** holds everything: avatar, ID, size, presets, read-aloud, engine, tone, speed, endpoint, preview, diagnostics;
-- **Service process**: start/stop your own TTS process and optionally start it with DSH (available on both the settings page and the plugin page);
+- **Service process**: start / stop / **restart** your own TTS process, optionally started with DSH; the settings page and the plugin page show exactly the same block;
+- **Status that follows the launch**: after clicking start you see "checking · N s elapsed (model loading usually takes 10–30s)", then "connected"; only after 25s without a connection does it say "not connected" with a short reason (timeout / unreachable / HTTP code);
 - Diagnostics: service state and model name, last synthesis time, playback progress, last error;
 - **Chinese / English UI switch** on the plugin page, the settings page and the avatar popup; the choice is stored locally;
 - Everything is kept in this browser's `localStorage`; nothing is uploaded unless you point the endpoint at a remote host.
