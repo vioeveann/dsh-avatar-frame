@@ -17,6 +17,7 @@ window.__ModuleLoader__.load({
     const ENDPOINT_KEY = 'dsh-avatar-frame/endpoint/v1';
     const RATE_KEY = 'dsh-avatar-frame/rate/v1';
     const TONE_KEY = 'dsh-avatar-frame/tone/v1';
+    const SYSVOICE_KEY = 'dsh-avatar-frame/sysvoice/v1';
     /**
      * The plugin ships no model, no reference audio, and no service: it only
      * calls a TTS endpoint the user runs. This is just the default address.
@@ -70,6 +71,9 @@ window.__ModuleLoader__.load({
       'engine.system': '系统语音',
       'engine.clone': '本地服务',
       'engine.hint': '想用本地语音服务请在本机配置（模型和参考音频自备）。',
+      'sysvoice.label': '系统语音',
+      'sysvoice.auto': '自动选择',
+      'sysvoice.test': '试听',
       'endpoint.label': '服务地址',
       'endpoint.placeholder': '例如 http://127.0.0.1:8123',
       'status.checking': '检测中',
@@ -162,6 +166,9 @@ window.__ModuleLoader__.load({
       'engine.system': 'System voice',
       'engine.clone': 'Local service',
       'engine.hint': 'To use a local voice, set up your own speech service on this machine (model and reference audio are yours to provide).',
+      'sysvoice.label': 'System voice',
+      'sysvoice.auto': 'Automatic',
+      'sysvoice.test': 'Preview',
       'endpoint.label': 'Service address',
       'endpoint.placeholder': 'e.g. http://127.0.0.1:8123',
       'status.checking': 'Checking',
@@ -282,6 +289,7 @@ window.__ModuleLoader__.load({
       endpoint: readStored(ENDPOINT_KEY) || DEFAULT_ENDPOINT,
       rate: Number(readStored(RATE_KEY)) > 0 ? Number(readStored(RATE_KEY)) : DEFAULT_RATE,
       tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
+      sysVoice: readStored(SYSVOICE_KEY) || '',
       lang: readStoredLang(),
     });
     let translate = (key) => key;
@@ -321,6 +329,8 @@ window.__ModuleLoader__.load({
     /* --------------------------------------------------------------- speech */
 
     let cachedVoices = [];
+    /** 系统语音列表（浏览器异步加载，加载完要让下拉框刷新）。 */
+    const voicesStore = createStore({ list: [] });
     /** One active playback: a token guards against stopped or replaced runs. */
     const speechRun = {
       token: 0,
@@ -345,19 +355,42 @@ window.__ModuleLoader__.load({
       } catch {
         cachedVoices = [];
       }
+      voicesStore.set({ list: cachedVoices.slice() });
     }
 
-    /** Prefer a Chinese female-sounding system voice; fall back to any Chinese voice. */
-    function pickVoice() {
+    /**
+     * 系统语音排序：神经网络音色（Natural / Online / Neural）> 中文 > 女声常见命名，
+     * 老的 SAPI 音色（Huihui 等）排最后。用户手动选过就直接用它。
+     */
+    function scoreVoice(voice) {
+      const name = String(voice.name || '');
+      const lang = String(voice.lang || '');
+      let score = 0;
+      if (/natural|neural|online|premium|enhanced/i.test(name)) score += 100;
+      if (/^zh/i.test(lang)) score += 20;
+      if (/xiaoxiao|xiaoyi|xiaomo|xiaoxuan|xiaohan|xiaorui|yaoyao|女子|女/i.test(name)) score += 10;
+      if (/huihui|kangkang|yaoyao.*sapi/i.test(name)) score -= 30;
+      if (/google/i.test(name)) score += 15;
+      return score;
+    }
+
+    /** 可选的中文（或全部）系统语音，按“像人”的程度排序。 */
+    function voiceOptions() {
       if (cachedVoices.length === 0) refreshVoices();
-      const chinese = cachedVoices.filter((voice) => /^zh/i.test(voice.lang || ''));
-      const pool = chinese.length > 0 ? chinese : cachedVoices;
-      const preferred = ['Xiaoxiao', 'Xiaoyi', 'Yaoyao', 'Huihui', 'Natural', 'Female', '女'];
-      for (const keyword of preferred) {
-        const hit = pool.find((voice) => (voice.name || '').includes(keyword));
-        if (hit) return hit;
+      const all = cachedVoices.slice();
+      const chinese = all.filter((voice) => /^zh/i.test(voice.lang || ''));
+      const pool = chinese.length > 0 ? chinese : all;
+      return pool.slice().sort((a, b) => scoreVoice(b) - scoreVoice(a));
+    }
+
+    function pickVoice() {
+      const options = voiceOptions();
+      const chosen = avatarStore.get().sysVoice;
+      if (chosen !== '') {
+        const hit = options.find((voice) => voice.name === chosen);
+        if (hit !== undefined) return hit;
       }
-      return pool[0] || null;
+      return options[0] || null;
     }
 
     function interruptPlayback() {
@@ -665,8 +698,8 @@ window.__ModuleLoader__.load({
         } else {
           utterance.lang = 'zh-CN';
         }
-        // Slow and even, closer to a composed reading voice than the default.
-        utterance.rate = 0.95;
+        // 跟随设置里的语速；系统语音对 0.95 左右的慢速更自然。
+        utterance.rate = Math.min(1.3, Math.max(0.7, Number(avatarStore.get().rate) || 1)) * 0.95;
         utterance.pitch = 1;
         utterance.volume = 1;
         utterance.onend = () => {
@@ -710,6 +743,28 @@ window.__ModuleLoader__.load({
     function setEndpoint(value) {
       avatarStore.set({ endpoint: value });
       persist(ENDPOINT_KEY, value);
+    }
+
+    function setSysVoice(name) {
+      const next = typeof name === 'string' ? name : '';
+      avatarStore.set({ sysVoice: next });
+      persist(SYSVOICE_KEY, next);
+    }
+
+    /** 用系统语音念一句，给「试听」按钮用。 */
+    function auditionSystemVoice() {
+      if (typeof window.speechSynthesis === 'undefined') return;
+      const utterance = new SpeechSynthesisUtterance(translate('audition.text'));
+      const voice = pickVoice();
+      if (voice !== null) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      }
+      utterance.rate = Math.min(1.3, Math.max(0.7, Number(avatarStore.get().rate) || 1));
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
     }
 
     function chooseTone(value) {
@@ -957,6 +1012,7 @@ window.__ModuleLoader__.load({
         endpoint: readStored(ENDPOINT_KEY) || DEFAULT_ENDPOINT,
         rate: Number(readStored(RATE_KEY)) > 0 ? Number(readStored(RATE_KEY)) : DEFAULT_RATE,
         tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
+        sysVoice: readStored(SYSVOICE_KEY) || '',
         lang: readStoredLang(),
       });
       presetStore.set({ items: readPresets() });
@@ -1543,6 +1599,43 @@ window.__ModuleLoader__.load({
     }
 
     /** Which engine reads the reply: the system voice or a local service the user runs. */
+    /** 系统语音选择：浏览器自带的音色有软有硬，交给用户挑，附一个试听。 */
+    function SystemVoiceField({ t }) {
+      const avatar = useAvatar();
+      const voices = React.useSyncExternalStore(voicesStore.subscribe, voicesStore.get, voicesStore.get).list;
+      React.useEffect(() => {
+        refreshVoices();
+      }, []);
+      const options = voiceOptions();
+      const autoLabel = options.length > 0 ? t("sysvoice.auto") + " · " + options[0].name : t("sysvoice.auto");
+      return h(
+        "div",
+        { className: "dsav-toggleRow" },
+        h("span", { className: "dsav-toggleLabel" }, t("sysvoice.label")),
+        h(
+          "div",
+          { className: "dsav-voicePick" },
+          h(
+            "select",
+            {
+              className: "dsav-select",
+              value: avatar.sysVoice,
+              "aria-label": t("sysvoice.label"),
+              onChange: (event) => setSysVoice(event.target.value),
+            },
+            h("option", { value: "" }, autoLabel),
+            options.map((voice) =>
+              h("option", { key: voice.name, value: voice.name }, voice.name + " · " + voice.lang),
+            ),
+          ),
+          h(
+            "button",
+            { type: "button", className: "dsav-btn", onClick: () => auditionSystemVoice() },
+            t("sysvoice.test"),
+          ),
+        ),
+      );
+    }
     function EngineField({ t }) {
       const avatar = useAvatar();
       const options = [
@@ -1794,6 +1887,7 @@ window.__ModuleLoader__.load({
               h(FontSizeField, { t }),
               h(SpeechToggle, { t }),
               h(EngineField, { t }),
+              avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
               avatar.engine === 'clone' ? h(ToneField, { t }) : null,
               avatar.engine === 'clone' ? h(RateField, { t }) : null,
               h(PresetBar, { t }),
@@ -2006,6 +2100,7 @@ window.__ModuleLoader__.load({
         h(FontSizeField, { t }),
         h(SpeechToggle, { t }),
         h(EngineField, { t }),
+        avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
         h(RateField, { t }),
         avatar.engine === 'clone' ? h(AuditionButton, { t }) : null,
@@ -2445,6 +2540,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'dsav-sectionTitle' }, t('section.speech')),
         h(SpeechToggle, { t }),
         h(EngineField, { t }),
+        avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
         h(RateField, { t }),
         avatar.engine === 'clone'
@@ -2510,6 +2606,9 @@ window.__ModuleLoader__.load({
 .dsav-langBtn{height:22px;padding:0 10px;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:11px;line-height:1;cursor:pointer}
 .dsav-langBtn:hover{color:var(--dsw-alias-label-primary)}
 .dsav-langOn{background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-label-primary);font-weight:600}
+.dsav-voicePick{display:flex;align-items:center;gap:8px;min-width:0;flex:1;justify-content:flex-end}
+.dsav-select{box-sizing:border-box;max-width:260px;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
+.dsav-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
 .dsav-dialogSmall{width:min(368px,100%)}
 .dsav-input{box-sizing:border-box;width:100%;height:32px;padding:0 10px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px}
 .dsav-input::placeholder{color:var(--dsw-alias-label-tertiary)}
