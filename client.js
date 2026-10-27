@@ -18,6 +18,8 @@ window.__ModuleLoader__.load({
     const RATE_KEY = 'dsh-avatar-frame/rate/v1';
     const TONE_KEY = 'dsh-avatar-frame/tone/v1';
     const SYSVOICE_KEY = 'dsh-avatar-frame/sysvoice/v1';
+    const AUTO_SPEECH_KEY = 'dsh-avatar-frame/autospeech/v1';
+    const VOLUME_KEY = 'dsh-avatar-frame/volume/v1';
     /**
      * The plugin ships no model, no reference audio, and no service: it only
      * calls a TTS endpoint the user runs. This is just the default address.
@@ -91,6 +93,8 @@ window.__ModuleLoader__.load({
       'tone.normal': '自然',
       'tone.lively': '活泼',
       'speech.rate': '语速',
+      'auto.label': '自动朗读新回复',
+      'volume.label': '音量',
       'audition.label': '试听一句',
       'audition.stopHint': '正在朗读',
       'audition.text': '程序启动，访问人，用户，你好！',
@@ -113,6 +117,7 @@ window.__ModuleLoader__.load({
       'service.external': '端口上已有服务（非本插件启动）',
       'service.start': '启动服务',
       'service.stop': '停止服务',
+      'service.restart': '重启服务',
       'service.autostart': 'DSH 启动时拉起语音服务',
       'service.configure': '启动配置',
       'service.command': '启动命令',
@@ -191,6 +196,8 @@ window.__ModuleLoader__.load({
       'tone.normal': 'Natural',
       'tone.lively': 'Lively',
       'speech.rate': 'Speed',
+      'auto.label': 'Read new replies automatically',
+      'volume.label': 'Volume',
       'audition.label': 'Preview',
       'audition.stopHint': 'Reading…',
       'audition.text': 'Program initializing. Accessor: user.',
@@ -213,6 +220,7 @@ window.__ModuleLoader__.load({
       'service.external': 'A service is already listening (started outside the plugin)',
       'service.start': 'Start service',
       'service.stop': 'Stop service',
+      'service.restart': 'Restart',
       'service.autostart': 'Start the speech service with DSH',
       'service.configure': 'Launch settings',
       'service.command': 'Command',
@@ -300,6 +308,8 @@ window.__ModuleLoader__.load({
       rate: Number(readStored(RATE_KEY)) > 0 ? Number(readStored(RATE_KEY)) : DEFAULT_RATE,
       tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
       sysVoice: readStored(SYSVOICE_KEY) || '',
+      autoSpeech: readStored(AUTO_SPEECH_KEY) === '1',
+      volume: Number(readStored(VOLUME_KEY)) >= 0 ? Math.min(1, Math.max(0, Number(readStored(VOLUME_KEY)))) : 1,
       lang: readStoredLang(),
     });
     let translate = (key) => key;
@@ -356,6 +366,10 @@ window.__ModuleLoader__.load({
       seek: null,
       rate: DEFAULT_RATE,
       paused: false,
+      /** 当前这段朗读是不是走浏览器自带语音。 */
+      system: false,
+      /** 本地播放的音量节点。 */
+      gain: null,
       sessionId: null,
       turn: null,
       error: null,
@@ -493,6 +507,8 @@ window.__ModuleLoader__.load({
       } catch {
         // An absent or failed engine simply leaves nothing playing.
       }
+      speechRun.system = false;
+      speechRun.paused = false;
       speechRun.sessionId = null;
       speechRun.turn = null;
       speechRun.error = null;
@@ -525,7 +541,18 @@ window.__ModuleLoader__.load({
     }
 
     function pauseSpeech() {
-      if (speechRun.ctx === null || speechStore.get().status !== 'speaking') return;
+      if (speechStore.get().status !== 'speaking') return;
+      if (speechRun.system) {
+        try {
+          window.speechSynthesis.pause();
+        } catch {
+          return;
+        }
+        speechRun.paused = true;
+        publishSystem('paused');
+        return;
+      }
+      if (speechRun.ctx === null) return;
       speechRun.paused = true;
       speechRun.ctx.suspend().catch(() => {});
       publishSpeech('paused');
@@ -534,6 +561,15 @@ window.__ModuleLoader__.load({
     function resumeSpeech() {
       if (speechStore.get().status !== 'paused') return;
       speechRun.paused = false;
+      if (speechRun.system) {
+        try {
+          window.speechSynthesis.resume();
+        } catch {
+          return;
+        }
+        publishSystem('speaking');
+        return;
+      }
       if (speechRun.ctx !== null) speechRun.ctx.resume().catch(() => {});
       publishSpeech('speaking');
     }
@@ -567,6 +603,16 @@ window.__ModuleLoader__.load({
     function skipSentence(delta) {
       if (speechRun.chunks.length === 0) return;
       const target = Math.min(speechRun.chunks.length - 1, Math.max(0, speechRun.index + delta));
+      if (speechRun.system) {
+        speechRun.token += 1;
+        try {
+          window.speechSynthesis.cancel();
+        } catch {
+          // 忽略。
+        }
+        speakSystemFrom(target, speechRun.token);
+        return;
+      }
       speechRun.seek = target;
       interruptPlayback();
       publishSpeech(speechStore.get().status);
@@ -641,6 +687,7 @@ window.__ModuleLoader__.load({
     }
 
     function playSpeechBuffer(buffer) {
+      const volume = Math.min(1, Math.max(0, Number(avatarStore.get().volume)));
       return new Promise((resolve) => {
         const ctx = ensureAudioContext();
         if (ctx === null) {
@@ -654,7 +701,17 @@ window.__ModuleLoader__.load({
         } catch {
           // Rate stays at 1 if unsupported.
         }
-        source.connect(ctx.destination);
+        // 有 GainNode 才走音量节点；极老的引擎没有就直连，别让播放在这里断掉。
+        if (typeof ctx.createGain === 'function') {
+          if (speechRun.gain === null) {
+            speechRun.gain = ctx.createGain();
+            speechRun.gain.connect(ctx.destination);
+          }
+          speechRun.gain.gain.value = volume;
+          source.connect(speechRun.gain);
+        } else {
+          source.connect(ctx.destination);
+        }
         speechRun.source = source;
         let done = false;
         const finish = () => {
@@ -748,46 +805,79 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** 系统语音的状态广播：和本地服务的 publishSpeech 对齐，界面上控制条才认得。 */
+    function publishSystem(status) {
+      speechStore.set({
+        status,
+        sessionId: speechRun.sessionId,
+        turn: speechRun.turn,
+        index: speechRun.index,
+        total: speechRun.chunks.length,
+        rate: speechRun.rate,
+        error: speechRun.error,
+        engine: 'system',
+      });
+    }
+
+    /** 从第 index 句开始念；token 变了说明这次朗读已被取消。 */
+    function speakSystemFrom(index, token) {
+      if (token !== speechRun.token) return;
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      if (index >= speechRun.chunks.length) {
+        speechRun.system = false;
+        speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, engine: null, error: null });
+        return;
+      }
+      speechRun.index = index;
+      const chunk = speechRun.chunks[index];
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      const voice = pickVoice(chunk);
+      if (voice !== null) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      } else {
+        utterance.lang = /[\u3400-\u9fff]/.test(chunk) ? 'zh-CN' : 'en-US';
+      }
+      // 跟随设置里的语速；系统语音略放慢更自然。
+      utterance.rate = Math.min(1.3, Math.max(0.7, Number(avatarStore.get().rate) || 1)) * 0.95;
+      utterance.pitch = 1;
+      utterance.volume = Math.min(1, Math.max(0, Number(avatarStore.get().volume)));
+      utterance.onend = () => {
+        if (token !== speechRun.token) return;
+        speakSystemFrom(index + 1, token);
+      };
+      utterance.onerror = () => {
+        if (token !== speechRun.token) return;
+        speakSystemFrom(index + 1, token);
+      };
+      publishSystem(speechRun.paused ? 'paused' : 'speaking');
+      try {
+        synth.speak(utterance);
+      } catch {
+        speechRun.system = false;
+        speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, engine: null, error: null });
+      }
+    }
+
     function startSpeech(text, sessionId, turn) {
       const synth = window.speechSynthesis;
       if (!synth || text === '') return;
       synth.cancel();
-      const speak = () => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        const voice = pickVoice(text);
-        if (voice !== null) {
-          utterance.voice = voice;
-          utterance.lang = voice.lang;
-        } else {
-          utterance.lang = 'zh-CN';
-        }
-        // 跟随设置里的语速；系统语音对 0.95 左右的慢速更自然。
-        utterance.rate = Math.min(1.3, Math.max(0.7, Number(avatarStore.get().rate) || 1)) * 0.95;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-        utterance.onend = () => {
-          if (speechStore.get().turn === turn) speechStore.set({ status: 'idle', sessionId: null, turn: null, engine: null });
-        };
-        utterance.onerror = () => {
-          speechStore.set({ status: 'idle', sessionId: null, turn: null, engine: null });
-        };
-        speechStore.set({ status: 'speaking', sessionId, turn, engine: 'system', index: 0, total: 0, error: null });
-        synth.speak(utterance);
-      };
-      if ((synth.getVoices() || []).length === 0) {
-        let started = false;
-        const kick = () => {
-          if (started) return;
-          started = true;
-          refreshVoices();
-          speak();
-        };
-        if (typeof synth.addEventListener === 'function') synth.addEventListener('voiceschanged', kick, { once: true });
-        window.setTimeout(kick, 400);
-      } else {
-        refreshVoices();
-        speak();
+      refreshVoices();
+      speechRun.token += 1;
+      speechRun.system = true;
+      speechRun.paused = false;
+      speechRun.chunks = splitSpeech(text);
+      speechRun.index = 0;
+      speechRun.sessionId = sessionId;
+      speechRun.turn = turn;
+      speechRun.error = null;
+      if (speechRun.chunks.length === 0) {
+        speechRun.system = false;
+        return;
       }
+      speakSystemFrom(0, speechRun.token);
     }
 
     function setSpeech(enabled) {
@@ -806,6 +896,24 @@ window.__ModuleLoader__.load({
     function setEndpoint(value) {
       avatarStore.set({ endpoint: value });
       persist(ENDPOINT_KEY, value);
+    }
+
+    function setAutoSpeech(enabled) {
+      avatarStore.set({ autoSpeech: enabled === true });
+      persist(AUTO_SPEECH_KEY, enabled === true ? '1' : '0');
+    }
+
+    function setVolume(value) {
+      const next = Math.min(1, Math.max(0, Math.round(Number(value) * 100) / 100 || 0));
+      avatarStore.set({ volume: next });
+      persist(VOLUME_KEY, String(next));
+      if (speechRun.gain !== null) {
+        try {
+          speechRun.gain.gain.value = next;
+        } catch {
+          // 已经销毁的节点忽略。
+        }
+      }
     }
 
     function setSysVoice(name) {
@@ -1077,6 +1185,8 @@ window.__ModuleLoader__.load({
         rate: Number(readStored(RATE_KEY)) > 0 ? Number(readStored(RATE_KEY)) : DEFAULT_RATE,
         tone: TONES.includes(readStored(TONE_KEY)) ? readStored(TONE_KEY) : 'normal',
         sysVoice: readStored(SYSVOICE_KEY) || '',
+        autoSpeech: readStored(AUTO_SPEECH_KEY) === '1',
+        volume: Number(readStored(VOLUME_KEY)) >= 0 ? Math.min(1, Math.max(0, Number(readStored(VOLUME_KEY)))) : 1,
         lang: readStoredLang(),
       });
       presetStore.set({ items: readPresets() });
@@ -1322,6 +1432,30 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /** 自动朗读的状态：baseline 是打开界面时已有的最后一轮，之前的不念。 */
+    const autoSpeechState = { baseline: null, spoken: null, pending: null, timer: null };
+
+    function scheduleAutoSpeech(turn, text, enabled) {
+      if (!enabled || text === '' || turn === undefined) return;
+      const state = autoSpeechState;
+      if (state.baseline === null) {
+        state.baseline = turn;
+        return;
+      }
+      if (turn <= state.baseline || turn === state.spoken) return;
+      state.pending = { turn, text };
+      if (state.timer !== null) window.clearTimeout(state.timer);
+      // 等一轮渲染稳定再念，避免同一轮被重复触发。
+      state.timer = window.setTimeout(() => {
+        state.timer = null;
+        const pending = state.pending;
+        if (pending === null) return;
+        state.pending = null;
+        state.spoken = pending.turn;
+        startSpeech(pending.text, 'auto', pending.turn);
+      }, 700);
+    }
+
     /**
      * Replacement renderer for the settled Turn header row ("已完成，用时 …").
      * It keeps the shipped disclosure behaviour, adds the character avatar in
@@ -1338,6 +1472,11 @@ window.__ModuleLoader__.load({
         turnProcess !== undefined && turnProcess.spec !== undefined ? turnProcess.spec.answerStep : undefined;
       const selectChat = typeof useChat === 'function' ? useChat : (selector) => selector(EMPTY_CHAT_SNAPSHOT);
       const replyText = selectChat((snapshot) => readReplyText(snapshot, turnNumber, answerStep, avatar.speech));
+      React.useEffect(() => {
+        if (!avatar.speech || !avatar.autoSpeech) return;
+        if (speechStore.get().status !== 'idle') return;
+        scheduleAutoSpeech(turnNumber, replyText, true);
+      }, [turnNumber, replyText, avatar.autoSpeech, avatar.speech]);
       React.useEffect(() => {
         const current = speechStore.get();
         if (current.status === 'speaking' && current.sessionId !== sessionId) stopSpeech();
@@ -1417,7 +1556,7 @@ window.__ModuleLoader__.load({
       const failureDot =
         showSpeaker && failed ? h('span', { className: 'dsav-errorDot', title: speech.error, 'aria-label': speech.error }) : null;
       // 朗读时把控制条接在小喇叭右边，紧贴正在读的那一行。
-      const inlineControls = speaking && speech.engine === 'clone' ? h(SpeechControls, { t, speech }) : null;
+      const inlineControls = speaking && speech.engine !== null ? h(SpeechControls, { t, speech }) : null;
 
       const captionRow =
         caption === null && speaker === null && failureDot === null
@@ -2005,6 +2144,8 @@ window.__ModuleLoader__.load({
               h(IdField, { t, id: avatar.id }),
               h(FontSizeField, { t }),
               h(SpeechToggle, { t }),
+              h(AutoSpeechField, { t }),
+              h(VolumeField, { t }),
               h(EngineField, { t }),
               avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
               avatar.engine === 'clone' ? h(ToneField, { t }) : null,
@@ -2217,6 +2358,8 @@ window.__ModuleLoader__.load({
         ),
         h(FontSizeField, { t }),
         h(SpeechToggle, { t }),
+        h(AutoSpeechField, { t }),
+        h(VolumeField, { t }),
         h(EngineField, { t }),
         avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
@@ -2231,6 +2374,60 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------ settings row */
 
     /** 情绪档位：映射到服务端的 temperature / top_k。 */
+    /** 自动朗读新回复。 */
+    function AutoSpeechField({ t }) {
+      const avatar = useAvatar();
+      const disabled = !avatar.speech;
+      return h(
+        'div',
+        { className: 'dsav-toggleRow' },
+        h(
+          'span',
+          { className: 'dsav-toggleLabel' + (disabled ? ' dsav-muted' : '') },
+          t('auto.label'),
+        ),
+        h(
+          'button',
+          {
+            type: 'button',
+            role: 'switch',
+            'aria-checked': avatar.autoSpeech ? 'true' : 'false',
+            'aria-label': t('auto.label'),
+            disabled,
+            className: 'dsav-switch' + (avatar.autoSpeech ? ' dsav-switchOn' : ''),
+            onClick: () => setAutoSpeech(!avatar.autoSpeech),
+          },
+          h('span', { className: 'dsav-switchDot' }),
+        ),
+      );
+    }
+
+    /** 音量：两种引擎都生效。 */
+    function VolumeField({ t }) {
+      const avatar = useAvatar();
+      const percent = Math.round(avatar.volume * 100);
+      return h(
+        'div',
+        { className: 'dsav-toggleRow' },
+        h('span', { className: 'dsav-toggleLabel' }, t('volume.label')),
+        h(
+          'span',
+          { className: 'dsav-volume' },
+          h('input', {
+            className: 'dsav-range',
+            type: 'range',
+            min: 0,
+            max: 100,
+            step: 5,
+            value: percent,
+            'aria-label': t('volume.label'),
+            onChange: (event) => setVolume(Number(event.target.value) / 100),
+          }),
+          h('span', { className: 'dsav-volumeValue' }, percent + '%'),
+        ),
+      );
+    }
+
     function ToneField({ t }) {
       const avatar = useAvatar();
       const options = [
@@ -2449,7 +2646,28 @@ window.__ModuleLoader__.load({
       React.useEffect(load, []);
 
       const act = (action, payload) => {
-        setBusy(action);
+        const restart = action === 'restart';
+        setBusy(restart ? 'restart' : action);
+        if (restart) {
+          serviceCall('POST', { action: 'stop' })
+            .then((data) => {
+              adopt(data);
+              return new Promise((resolve) => window.setTimeout(resolve, 600));
+            })
+            .then(() => serviceCall('POST', { action: 'start' }))
+            .then((data) => {
+              adopt(data);
+              setMessage(data.ok === false ? data.error || t('service.failed') : t('service.startDone'));
+              beginServiceWarmup();
+              window.setTimeout(load, 3000);
+            })
+            .catch((error) => {
+              setAvailable(false);
+              setMessage(String(error && error.message ? error.message : error));
+            })
+            .finally(() => setBusy(''));
+          return;
+        }
         serviceCall('POST', { action, ...(payload || {}) })
           .then((data) => {
             setAvailable(true);
@@ -2522,6 +2740,18 @@ window.__ModuleLoader__.load({
             },
             t('service.stop'),
           ),
+          engine === 'clone'
+            ? h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dsav-btn',
+                  disabled: busy !== '' || !running,
+                  onClick: () => act('restart'),
+                },
+                t('service.restart'),
+              )
+            : null,
         ),
         h(
           'div',
@@ -2737,6 +2967,10 @@ window.__ModuleLoader__.load({
 .dsav-voiceTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dsav-voiceCount{white-space:nowrap}
 .dsav-warming{font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsav-muted{opacity:.5}
+.dsav-volume{display:flex;align-items:center;gap:8px;min-width:160px}
+.dsav-volume .dsav-range{margin:0;flex:1}
+.dsav-volumeValue{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;min-width:36px;text-align:right}
 .dsav-select{box-sizing:border-box;height:28px;padding:0 8px;border-radius:var(--dsw-radius-sm,6px);border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:1}
 .dsav-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
 .dsav-dialogSmall{width:min(420px,100%)}
