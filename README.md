@@ -29,7 +29,7 @@
 - 播放控制条：朗读时接在小喇叭右侧，可暂停/继续、上一句/下一句、五档语速（0.95× / 1.00× / 1.05× / 1.10× / 1.15×）、停止——**两种引擎都支持**；
 - 音量滑块（0–100%，**默认 50%**）；
 - 语气三档：平稳 / 自然 / 活泼，随请求发给你的服务；
-- 试听：不用回到聊天——设置页、插件详情页、点头像弹出的面板里都能直接试一句（两种引擎都支持）；
+- 试听：选「本地服务」时，设置页 / 插件详情页 / 头像弹窗里都有「试听一句」；选「系统语音」时，音色选择那一行自带试听；
 - 失败提示：某句合成失败时，小喇叭旁出现红点，悬停可看原因；试听失败时按钮旁会直接显示简短原因；
 - 长回复按句切分、提前两段预生成，句间不卡顿。
 
@@ -215,7 +215,7 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 - Two engines: the system voice, or your own local service;
 - Playback bar beside the speaker: pause/resume, previous/next sentence, five speeds (0.95×–1.15×), stop;
 - Three tone presets (calm / natural / lively) sent to your service;
-- Preview the voice from the settings page, the plugin page or the avatar panel — both engines supported;
+- Preview: with 'Local service' there is a preview button on the settings page, the plugin page and the avatar panel; with 'System voice' the voice picker has its own preview;
 - Failure dot next to the speaker with the reason on hover; a failed preview shows a short reason next to the button;
 - Long replies are split by sentence and pre-generated two chunks ahead, so playback stays continuous.
 

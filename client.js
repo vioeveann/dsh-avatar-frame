@@ -2410,11 +2410,13 @@ window.__ModuleLoader__.load({
               h(VolumeField, { t }),
               h(EngineField, { t }),
               avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
-              h(
-                'div',
-                { className: 'dsav-sectionRow dsav-auditionRow' },
-                h(AuditionButton, { t }),
-              ),
+              avatar.engine === 'clone'
+                ? h(
+                    'div',
+                    { className: 'dsav-sectionRow dsav-auditionRow' },
+                    h(AuditionButton, { t }),
+                  )
+                : null,
               avatar.engine === 'clone' ? h(ToneField, { t }) : null,
               avatar.engine === 'clone' ? h(RateField, { t }) : null,
               h(PresetBar, { t }),
@@ -2649,7 +2651,8 @@ window.__ModuleLoader__.load({
         avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
         avatar.engine === 'clone' ? h(ToneField, { t }) : null,
         h(RateField, { t }),
-        h(
+        avatar.engine === 'clone'
+          ? h(
           'div',
           { className: 'dsav-sectionRow' },
           h(AuditionButton, { t }),
@@ -2666,7 +2669,8 @@ window.__ModuleLoader__.load({
               ? null
               : h('span', { className: 'dsav-endpointHint dsav-warming' }, statusDetail(t, status)),
           ),
-        ),
+        )
+          : null,
       );
     }
 
