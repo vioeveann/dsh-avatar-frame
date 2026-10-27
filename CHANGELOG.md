@@ -2,6 +2,15 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.13.5] - 2026-10-28
+
+### 修复
+
+- 「试听一句」点了没声音：浏览器的 AudioContext 在没拿到用户手势时会处于 `suspended`，
+  此时 `source.start()` 不出声、`onended` 也不触发，状态就永远卡在 speaking。
+  现在播放前会 `await ctx.resume()`，并确认 `state === running`，否则按失败上报。
+- 加了播放看门狗：状态是「在播」但既没有音频源、浏览器也没在说话，超过 3 秒自动复位并记录失败原因。
+
 ## [0.13.4] - 2026-10-28
 
 ### 新增

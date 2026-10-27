@@ -384,6 +384,8 @@ window.__ModuleLoader__.load({
       system: false,
       /** 本地播放的音量节点。 */
       gain: null,
+      /** 看门狗用：状态进入「在播」但没有音源时的起始时间。 */
+      settledAt: null,
       sessionId: null,
       turn: null,
       error: null,
@@ -540,10 +542,25 @@ window.__ModuleLoader__.load({
         if (Ctor === undefined) return null;
         speechRun.ctx = new Ctor();
       }
-      if (speechRun.ctx.state === 'suspended' && speechRun.paused !== true) {
-        speechRun.ctx.resume().catch(() => {});
-      }
       return speechRun.ctx;
+    }
+
+    /**
+     * 浏览器默认会把没有用户手势的 AudioContext 挂起（suspended），
+     * 此时 source.start() 不会有声音、onended 也不会触发——表现就是「点了没反应」，
+     * 而且状态会一直卡在 speaking。所以播放前必须确认它真的在 running。
+     */
+    async function runningAudioContext() {
+      const ctx = ensureAudioContext();
+      if (ctx === null) return null;
+      if (ctx.state !== 'running') {
+        try {
+          await ctx.resume();
+        } catch {
+          // 恢复失败就按失败处理，让界面显示原因。
+        }
+      }
+      return ctx;
     }
 
     function publishSpeech(status) {
@@ -758,7 +775,7 @@ window.__ModuleLoader__.load({
       stopSpeech();
       // Prime the audio graph inside the click itself; creating it after the
       // first await would land outside the gesture and stay suspended.
-      ensureAudioContext();
+      await runningAudioContext();
       const token = speechRun.token;
       const chunks = splitSpeech(text);
       if (chunks.length === 0) return;
@@ -790,8 +807,9 @@ window.__ModuleLoader__.load({
             publishSpeech('speaking');
             continue;
           }
-          const ctx = ensureAudioContext();
+          const ctx = await runningAudioContext();
           if (ctx === null) throw new Error('no audio context');
+          if (ctx.state !== 'running') throw new Error('audio context is suspended: ' + ctx.state);
           const data = await result.arrayBuffer();
           if (speechRun.token !== token) return;
           const buffer = await ctx.decodeAudioData(data);
@@ -3227,6 +3245,34 @@ window.__ModuleLoader__.load({
           tag.remove();
         };
       }, 'dsh-avatar-frame: styles');
+      ctx.effect(() => {
+        if (typeof window.setInterval !== 'function') return () => {};
+        const timer = window.setInterval(() => {
+          const state = speechStore.get();
+          if (state.status === 'idle') return;
+          if (speechRun.source !== null || speechRun.system) {
+            speechRun.settledAt = null;
+            return;
+          }
+          if (speechRun.settledAt === null) {
+            speechRun.settledAt = Date.now();
+            return;
+          }
+          if (Date.now() - speechRun.settledAt < 3000) return;
+          speechRun.settledAt = null;
+          speechStore.set({
+            status: 'idle',
+            sessionId: null,
+            turn: null,
+            index: 0,
+            total: 0,
+            rate: speechRun.rate,
+            error: 'playback did not start',
+            engine: null,
+          });
+        }, 1000);
+        return () => window.clearInterval(timer);
+      }, 'dsh-avatar-frame: playback watchdog');
       // Do not keep talking after the plugin itself is unloaded.
       ctx.effect(() => () => stopSpeech(), 'dsh-avatar-frame: stop audio on unload');
       // A second window keeps its own copy of the stores; reload on its writes.
