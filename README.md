@@ -239,7 +239,7 @@ The package is published on npm as [`dsh-avatar-frame`](https://www.npmjs.com/pa
 
 ### Speech service
 
-The plugin never downloads a model or bundles a voice. It either uses the system voice or calls an HTTP service you provide. The default address is `http://127.0.0.1:8123` and can be changed in the panel, the plugin page or the settings page; a status dot shows connected / not connected and **retries every 8 seconds**, so start the service and watch it turn green — no refresh needed.
+The plugin never downloads a model or bundles a voice. It either uses the system voice or calls an HTTP service you provide. The default address is `http://127.0.0.1:8123` and can be changed in the panel, the plugin page or the settings page; a status dot shows connected / not connected and **retries every 2.5 seconds**, so start the service and watch it turn green — no refresh needed.
 
 **Try it with the bundled example** (Microsoft Edge online voices):
 
