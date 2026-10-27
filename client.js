@@ -711,7 +711,20 @@ window.__ModuleLoader__.load({
     function requestSpeech(chunk, controller) {
       const avatar = avatarStore.get();
       const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-      return fetch(resolveEndpoint() + '/tts', {
+      const url = resolveEndpoint() + '/tts';
+      trace('tts: post ' + url + ' chunk=' + chunk.slice(0, 12));
+      // 兜底超时：某些环境下请求会一直挂着（例如被浏览器的网络策略拦下），
+      // 没有超时就永远不会有结果，界面表现为「点了没反应」。
+      const timer = typeof window.setTimeout === 'function'
+        ? window.setTimeout(() => {
+            try {
+              controller.abort();
+            } catch {
+              // 忽略。
+            }
+          }, 90000)
+        : null;
+      return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -721,10 +734,19 @@ window.__ModuleLoader__.load({
         }),
         signal: controller.signal,
       }).then((response) => {
+        trace('tts: status ' + response.status);
         if (!response.ok) throw new Error('tts responded ' + response.status);
         const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
         statsStore.set({ lastMs: now - started });
-        return response.blob();
+        return response.blob().then((blob) => {
+          trace('tts: blob ' + blob.size);
+          return blob;
+        });
+      }).catch((error) => {
+        trace('tts: failed ' + String(error && error.name) + ' ' + String(error && error.message));
+        throw error;
+      }).finally(() => {
+        if (timer !== null && typeof window.clearTimeout === 'function') window.clearTimeout(timer);
       });
     }
 
@@ -868,7 +890,10 @@ window.__ModuleLoader__.load({
         console.warn('[dsh-avatar-frame] clone voice playback problem', error);
         // Only fall back when nothing has been heard yet; otherwise the reader
         // would hear the reply twice, once from each engine.
-        if (played === 0) startSpeech(text, sessionId, turn);
+        if (played === 0) {
+          speechRun.fallbackReason = speechRun.error;
+          startSpeech(text, sessionId, turn);
+        }
         // Keep the owning turn so its row can show the failure dot.
         else speechStore.set({ status: 'idle', sessionId: speechRun.sessionId, turn: speechRun.turn, index: 0, total: 0, rate: speechRun.rate, error: speechRun.error, engine: null });
       }

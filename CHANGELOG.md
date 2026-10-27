@@ -2,6 +2,17 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.13.9] - 2026-10-28
+
+### 修复
+
+- 从设置页点试听时请求一直挂起（日志停在 `clone: ctx=running` 之后，没有 `tts` 结果）：
+  DSH 页面的来源是 `dsh-app://`，向 `http://127.0.0.1` 发带 JSON 的 POST 会触发 Chromium 的
+  **Private Network Access** 预检，缺少 `Access-Control-Allow-Private-Network` 时请求会被拦下。
+  本例里服务端已补上该响应头。
+- 客户端给 `/tts` 加了 90 秒超时与更细的诊断（请求 URL、状态码、字节数、失败原因），
+  再出现挂起会以错误形式暴露，而不是无声无息。
+
 ## [0.13.8] - 2026-10-28
 
 ### 诊断
