@@ -1,8 +1,8 @@
 {
   "name": "dsh-avatar-frame",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "type": "module",
-  "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own local TTS service, with tone and speed controls, presets, a playback bar, one-click launching of your own TTS process, and a Chinese/English UI switch.",
+  "description": "Character avatar, editable ID and read-aloud beside every assistant reply — system voice or your own TTS service (local or remote), with tone and speed controls, presets, a playback bar, one-click launching of your own TTS process, and a Chinese/English UI switch.",
   "license": "MIT",
   "author": "vioeveann",
   "homepage": "https://github.com/vioeveann/dsh-avatar-frame#readme",
@@ -28,6 +28,10 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "node --check index.js && node --check client.js && npm test"
+  },
   "files": [
     "index.js",
     "client.js",
@@ -38,7 +42,12 @@
     "LICENSE",
     "CHANGELOG.md",
     "docs/tts-contract.md",
-    "examples/simple_tts.py"
+    "docs/plugin-page.zh.md",
+    "docs/plugin-page.en.md",
+    "examples/simple_tts.py",
+    "assets/icon-180.png",
+    "screenshots.json",
+    "docs/images/*.png"
   ],
   "dsh": {
     "bundle": {

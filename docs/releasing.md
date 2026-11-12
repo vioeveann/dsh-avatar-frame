@@ -19,11 +19,14 @@
 - 改完先在本地跑一遍自查：
 
 ```bash
-node --check client.js
-node --check index.js
+npm run check
 node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
 python -c "import ast,sys; ast.parse(open('examples/simple_tts.py',encoding='utf-8').read())"
 ```
+
+`npm run check` = 两个文件的语法检查 + 全部测试；`npm test` 会跑宿主路由用例（同源 / 桌面版 dsh-app
+传输 / Content-Type / start·stop 与启动脚本清理 / TTS 代理 / 诊断）、客户端纯函数用例（切句、字号
+夹取、地址归一化、音量/字号的存储读取）和字典用例（中英键一致、代码用到的 key 都有翻译）。
 
 ## 2. 更新版本号与更新记录
 

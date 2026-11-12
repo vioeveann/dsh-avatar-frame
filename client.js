@@ -72,8 +72,8 @@ window.__ModuleLoader__.load({
       'speech.stop': '停止朗读',
       'engine.label': '音色',
       'engine.system': '系统语音',
-      'engine.clone': '本地服务',
-      'engine.hint': '想用本地语音服务请在本机配置（模型和参考音频自备）。',
+      'engine.clone': '自备语音服务',
+      'engine.hint': '填你自备的语音服务地址（模型和参考音频自备）；默认只允许本机，远程地址需打开「允许远程语音服务地址」。',
       'sysvoice.label': '系统语音',
       'sysvoice.auto': '自动选择',
       'sysvoice.test': '试听',
@@ -84,7 +84,7 @@ window.__ModuleLoader__.load({
       'status.checking': '检测中',
       'status.online': '已连接',
       'status.offline': '未连接',
-      'status.warming': '正在启动语音服务，已等待 {s} 秒（模型加载通常要 10–30 秒）',
+      'status.warming': '正在启动语音服务，已等待 {s} 秒（模型加载慢时可能要几分钟）',
       'status.reasonTimeout': '连接超时：服务 4 秒没有响应',
       'status.reasonUnreachable': '连不上服务：可能还没启动，或地址不对',
       'status.reasonHttp': '服务返回 HTTP {code}',
@@ -98,6 +98,7 @@ window.__ModuleLoader__.load({
       'volume.label': '音量',
       'audition.label': '试听一句',
       'audition.playing': '试听中 {n}/{m}',
+      'audition.waiting': '正在请求语音服务，已等待 {s} 秒…首次加载模型可能较慢，请稍候',
       'audition.failed': '试听失败',
       'audition.text': '程序启动，访问人，用户，你好！',
       'bar.label': '朗读控制',
@@ -113,14 +114,18 @@ window.__ModuleLoader__.load({
       'section.speech': '朗读',
       'section.service': '语音服务',
       'section.diagnostics': '诊断',
-      'service.onlyForLocal': '这一段只对「本地服务」生效；进程还在跑，所以留一个停止入口。',
+      'service.onlyForLocal': '这一段只对「自备语音服务」生效；进程还在跑，所以留一个停止入口。',
       'service.running': '运行中',
       'service.stopped': '未运行',
+      'service.loading': '读取中…',
       'service.external': '端口上已有服务（非本插件启动）',
       'service.start': '启动服务',
       'service.stop': '停止服务',
       'service.restart': '重启服务',
       'service.autostart': 'DSH 启动时拉起语音服务',
+      'service.allowRemote': '允许远程语音服务地址',
+      'service.allowRemoteHint': '默认只允许本机（127.0.0.1 / localhost）。关着的时候，局域网或公网地址会被拒绝，免得宿主进程被当成访问内网的代理。',
+      'service.allowRemoteShort': '默认只允许本机；要连局域网或远程服务再打开',
       'service.configure': '启动配置',
       'service.command': '启动命令',
       'service.commandPlaceholder': '例如 "C:\\Python\\python.exe" server.py',
@@ -131,6 +136,7 @@ window.__ModuleLoader__.load({
       'service.savedDone': '配置已保存',
       'service.startDone': '已发出启动命令，稍等几秒再看连接状态',
       'service.stopDone': '已停止',
+      'service.saveDone': '已保存',
       'service.failed': '操作失败',
       'service.unavailable': '宿主端未加载：重启一次 DSH 后这里才可用。',
       'diag.service': '服务',
@@ -138,6 +144,9 @@ window.__ModuleLoader__.load({
       'diag.progress': '播放进度',
       'diag.lastError': '最近错误',
       'diag.none': '无',
+      'diag.copy': '复制诊断信息',
+      'diag.copied': '已复制，可以直接贴出来',
+      'diag.copyFailed': '复制失败，可以手动发 debug.log',
       'dialog.title': '设置 AI 头像',
       'dialog.choose': '选择头像图片',
       'dialog.hint': '拖动图片调整位置，滚轮或滑块缩放。',
@@ -176,8 +185,8 @@ window.__ModuleLoader__.load({
       'speech.stop': 'Stop reading',
       'engine.label': 'Voice',
       'engine.system': 'System voice',
-      'engine.clone': 'Local service',
-      'engine.hint': 'To use a local voice, set up your own speech service on this machine (model and reference audio are yours to provide).',
+      'engine.clone': 'Custom speech service',
+      'engine.hint': 'Point it at your own speech service (model and reference audio are yours to provide). Local addresses only by default; remote ones need "Allow a remote speech service".',
       'sysvoice.label': 'System voice',
       'sysvoice.auto': 'Automatic',
       'sysvoice.test': 'Preview',
@@ -188,7 +197,7 @@ window.__ModuleLoader__.load({
       'status.checking': 'Checking',
       'status.online': 'Connected',
       'status.offline': 'Not connected',
-      'status.warming': 'Starting the speech service — {s}s elapsed (model loading usually takes 10–30s)',
+      'status.warming': 'Starting the speech service — {s}s elapsed (model loading can take a few minutes)',
       'status.reasonTimeout': 'Timed out: no response within 4s',
       'status.reasonUnreachable': 'Cannot reach the service: not running, or wrong address',
       'status.reasonHttp': 'The service answered HTTP {code}',
@@ -202,6 +211,7 @@ window.__ModuleLoader__.load({
       'volume.label': 'Volume',
       'audition.label': 'Preview',
       'audition.playing': 'Previewing {n}/{m}',
+      'audition.waiting': 'Waiting for the speech service — {s}s elapsed; the first run may take a while',
       'audition.failed': 'Preview failed',
       'audition.text': 'Program initializing. Accessor: user.',
       'bar.label': 'Read-aloud controls',
@@ -217,14 +227,18 @@ window.__ModuleLoader__.load({
       'section.speech': 'Read aloud',
       'section.service': 'Speech service',
       'section.diagnostics': 'Diagnostics',
-      'service.onlyForLocal': 'This section applies to the local service only; the process is still running, so the stop button stays here.',
+      'service.onlyForLocal': 'This section applies to the custom speech service only; the process is still running, so the stop button stays here.',
       'service.running': 'Running',
       'service.stopped': 'Stopped',
+      'service.loading': 'Loading…',
       'service.external': 'A service is already listening (started outside the plugin)',
       'service.start': 'Start service',
       'service.stop': 'Stop service',
       'service.restart': 'Restart',
       'service.autostart': 'Start the speech service with DSH',
+      'service.allowRemote': 'Allow a remote speech service',
+      'service.allowRemoteHint': 'Local addresses only by default (127.0.0.1 / localhost). While off, LAN and public addresses are rejected so the host process cannot act as an internal proxy.',
+      'service.allowRemoteShort': 'Local only by default; enable it for a LAN or remote service',
       'service.configure': 'Launch settings',
       'service.command': 'Command',
       'service.commandPlaceholder': 'e.g. "C:\\Python\\python.exe" server.py',
@@ -235,6 +249,7 @@ window.__ModuleLoader__.load({
       'service.savedDone': 'Settings saved',
       'service.startDone': 'Start requested — check the connection dot in a few seconds',
       'service.stopDone': 'Stopped',
+      'service.saveDone': 'Saved',
       'service.failed': 'The action failed',
       'service.unavailable': 'Host half not loaded: restart DSH once to enable this.',
       'diag.service': 'Service',
@@ -242,6 +257,9 @@ window.__ModuleLoader__.load({
       'diag.progress': 'Progress',
       'diag.lastError': 'Last error',
       'diag.none': 'none',
+      'diag.copy': 'Copy diagnostics',
+      'diag.copied': 'Copied — paste it where needed',
+      'diag.copyFailed': 'Copy failed; send debug.log instead',
       'dialog.title': 'Assistant avatar',
       'dialog.choose': 'Choose avatar image',
       'dialog.hint': 'Drag to reposition; scroll or use the slider to zoom.',
@@ -329,7 +347,7 @@ window.__ModuleLoader__.load({
     const statsStore = createStore({ lastMs: null });
     /** 计数器：每次 +1 让健康检查重新探一次（启动服务后立刻刷新状态）。 */
     const probeStore = createStore({ tick: 0, startingSince: null });
-    const speechStore = createStore({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: DEFAULT_RATE, error: null, engine: null });
+    const speechStore = createStore({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: DEFAULT_RATE, error: null, engine: null, waitingSince: null, lastError: null });
 
     function persist(key, value) {
       try {
@@ -548,7 +566,7 @@ window.__ModuleLoader__.load({
       speechRun.sessionId = null;
       speechRun.turn = null;
       speechRun.error = null;
-      speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: speechRun.rate, error: null, engine: null });
+      speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: speechRun.rate, error: null, engine: null, waitingSince: null });
     }
 
     function ensureAudioContext() {
@@ -594,6 +612,17 @@ window.__ModuleLoader__.load({
         error: speechRun.error,
         engine: 'clone',
       });
+    }
+
+    /**
+     * 记一条「最近错误」给诊断区看。
+     * speechRun.error 会随每次朗读重置（失败后回退系统语音也会被清掉），
+     * 单看它永远显示「无」；这里的记录只在插件重载时消失。
+     */
+    function recordSpeechError(message) {
+      const text = String(message === undefined || message === null ? '' : message).trim();
+      if (text === '') return;
+      speechStore.set({ lastError: text.slice(0, 200) });
     }
 
     function pauseSpeech() {
@@ -742,11 +771,17 @@ window.__ModuleLoader__.load({
     /** 一旦直连失败过，就记住这个事实，后续直接走宿主代理，不再每段等超时。 */
     let directTtsBroken = false;
 
+    /** 从 started 起的毫秒数（performance.now 优先）。诊断区的「上句生成耗时」用。 */
+    function elapsedMs(started) {
+      const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      return Math.max(0, Math.round(now - started));
+    }
+
     function requestSpeech(chunk, controller) {
       const avatar = avatarStore.get();
       const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
       const url = resolveEndpoint() + '/tts';
-      trace('tts: post ' + url + ' chunk=' + chunk.slice(0, 12));
+      trace('tts: post ' + url + ' chunk=' + chunk.length + ' chars');
       // 直连只等 1.5 秒：dsh-app:// 页面访问 127.0.0.1 常被网络策略拦下，
       // 与其干等，不如尽快改走宿主代理（宿主进程不受这层限制）。
       speechRun.pendingFetches += 1;
@@ -759,6 +794,7 @@ window.__ModuleLoader__.load({
         return requestSpeechViaHost(chunk, avatar).then(
           (blob) => {
             done();
+            statsStore.set({ lastMs: elapsedMs(started) });
             return blob;
           },
           (error) => {
@@ -813,6 +849,7 @@ window.__ModuleLoader__.load({
         directTtsBroken = true;
         trace('tts: direct failed (' + String(error && error.name) + ' ' + String(error && error.message) + ') -> host proxy');
         const blob = await requestSpeechViaHost(chunk, avatar);
+        statsStore.set({ lastMs: elapsedMs(started) });
         trace('tts: host proxy ok ' + blob.size);
         return blob;
       }).then((blob) => {
@@ -890,7 +927,7 @@ window.__ModuleLoader__.load({
      * while the current one plays; pause, speed and sentence skipping act on the
      * same runner.
      */
-    async function speakClone(text, sessionId, turn) {
+    async function speakClone(text, sessionId, turn, allowFallback = true) {
       stopSpeech();
       const token = speechRun.token;
       const chunks = splitSpeech(text);
@@ -908,6 +945,8 @@ window.__ModuleLoader__.load({
       // 先让界面进入「试听中」，再做需要 await 的准备工作：
       // 任何一步卡住都不会表现成"点了没反应"。
       publishSpeech('speaking');
+      // 第一句要等服务加载完模型，可能几十秒：记下开始等待的时间，供界面显示进度。
+      speechStore.set({ waitingSince: Date.now() });
       trace('clone: start chunks=' + chunks.length + ' rate=' + speechRun.rate);
       try {
         // 音频上下文要在这次点击的手势里创建/恢复，晚了会被浏览器挂起。
@@ -928,6 +967,7 @@ window.__ModuleLoader__.load({
           if (speechRun.token !== token) return;
           if (result !== undefined && result.error) {
             speechRun.error = String(result.error.message || result.error);
+            recordSpeechError(speechRun.error);
             console.warn('[dsh-avatar-frame] chunk synthesis failed', result.error);
             if (played === 0) throw result.error;
             speechRun.index = index + 1;
@@ -948,6 +988,8 @@ window.__ModuleLoader__.load({
             publishSpeech(speechStore.get().status);
           }
           if (speechRun.token !== token) return;
+          // 第一句真的开始出声了，等待提示到此为止。
+          if (played === 0 && speechStore.get().waitingSince !== null) speechStore.set({ waitingSince: null });
           await playSpeechBuffer(buffer);
           trace('clone: played ' + index);
           if (speechRun.token !== token) return;
@@ -964,25 +1006,28 @@ window.__ModuleLoader__.load({
           publishSpeech(speechStore.get().status);
         }
         if (speechRun.token === token) {
-          speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: speechRun.rate, error: speechRun.error, engine: null });
+          speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, rate: speechRun.rate, error: speechRun.error, engine: null, waitingSince: null });
         }
       } catch (error) {
         trace('clone: error ' + String(error && error.message ? error.message : error));
         if (speechRun.token !== token) return;
+        if (speechStore.get().waitingSince !== null) speechStore.set({ waitingSince: null });
         speechRun.error = String(error && error.message ? error.message : error);
+        recordSpeechError(speechRun.error);
         console.warn('[dsh-avatar-frame] clone voice playback problem', error);
         // Only fall back when nothing has been heard yet; otherwise the reader
         // would hear the reply twice, once from each engine.
-        if (played === 0) {
+        // 试听关掉回退：服务没起来时切系统语音念一句，会让人以为自备语音服务是好的。
+        if (played === 0 && allowFallback) {
           speechRun.fallbackReason = speechRun.error;
           startSpeech(text, sessionId, turn);
         }
         // Keep the owning turn so its row can show the failure dot.
-        else speechStore.set({ status: 'idle', sessionId: speechRun.sessionId, turn: speechRun.turn, index: 0, total: 0, rate: speechRun.rate, error: speechRun.error, engine: null });
+        else speechStore.set({ status: 'idle', sessionId: speechRun.sessionId, turn: speechRun.turn, index: 0, total: 0, rate: speechRun.rate, error: speechRun.error, engine: null, waitingSince: null });
       }
     }
 
-    /** 系统语音的状态广播：和本地服务的 publishSpeech 对齐，界面上控制条才认得。 */
+    /** 系统语音的状态广播：和自备语音服务的 publishSpeech 对齐，界面上控制条才认得。 */
     function publishSystem(status) {
       speechStore.set({
         status,
@@ -1024,8 +1069,13 @@ window.__ModuleLoader__.load({
         if (token !== speechRun.token) return;
         speakSystemFrom(index + 1, token);
       };
-      utterance.onerror = () => {
+      utterance.onerror = (event) => {
         if (token !== speechRun.token) return;
+        // 停止 / 换音色时的 interrupted、canceled 不算故障，别写进诊断。
+        const reason = event && event.error ? String(event.error) : '';
+        if (reason !== '' && reason !== 'interrupted' && reason !== 'canceled') {
+          recordSpeechError('system voice: ' + reason);
+        }
         speakSystemFrom(index + 1, token);
       };
       publishSystem(speechRun.paused ? 'paused' : 'speaking');
@@ -1036,6 +1086,7 @@ window.__ModuleLoader__.load({
         synth.speak(utterance);
       } catch {
         speechRun.system = false;
+        recordSpeechError('system voice: speak() failed');
         speechStore.set({ status: 'idle', sessionId: null, turn: null, index: 0, total: 0, engine: null, error: null });
       }
     }
@@ -1141,11 +1192,16 @@ window.__ModuleLoader__.load({
       persist(LANG_KEY, next === 'auto' ? '' : next);
     }
 
+    /** 地址归一化：去空白、去尾部斜杠，空值回落到默认地址。 */
+    function normalizeEndpoint(raw) {
+      const text = String(raw || '').trim();
+      if (text === '') return DEFAULT_ENDPOINT;
+      return text.replace(/\/+$/, '');
+    }
+
     /** Normalized address of the user's own TTS service. */
     function resolveEndpoint() {
-      const raw = (avatarStore.get().endpoint || '').trim();
-      if (raw === '') return DEFAULT_ENDPOINT;
-      return raw.replace(/\/+$/, '');
+      return normalizeEndpoint(avatarStore.get().endpoint);
     }
 
     /**
@@ -2058,11 +2114,58 @@ window.__ModuleLoader__.load({
 
     /**
      * 点了「启动服务」之后调用：进入暖机期。
-     * 模型加载要十几秒，这段时间探测必然失败，但不能因此显示「未连接」把人吓走。
+     * 模型加载可能几十秒到几分钟（GPT-SoVITS 实测要两分半），这段时间探测必然失败，
+     * 但只要宿主还说进程活着，就不该显示「未连接」把人吓走；进程真退了就立刻收手。
      */
-    const SERVICE_WARMUP_MS = 25000;
+    const SERVICE_WARMUP_MS = 180000;
+    const WARMUP_WATCH_MS = 3000;
+    let warmupTimer = null;
+
+    /** 停掉暖机期的进程探针。 */
+    function stopWarmupWatch() {
+      if (warmupTimer !== null) {
+        window.clearTimeout(warmupTimer);
+        warmupTimer = null;
+      }
+    }
+
+    /** 结束暖机：探测那边会跟着重新判断。 */
+    function endServiceWarmup() {
+      stopWarmupWatch();
+      if (probeStore.get().startingSince !== null) probeStore.set({ startingSince: null });
+    }
+
+    /** 暖机期间每 3 秒问一次宿主：进程还在就继续等，提前退出就结束暖机。 */
+    function watchWarmupProcess(startedAt) {
+      stopWarmupWatch();
+      warmupTimer = window.setTimeout(() => {
+        warmupTimer = null;
+        if (probeStore.get().startingSince !== startedAt) return;
+        if (Date.now() - startedAt >= SERVICE_WARMUP_MS) {
+          endServiceWarmup();
+          return;
+        }
+        serviceCall('GET')
+          .then((data) => {
+            if (probeStore.get().startingSince !== startedAt) return;
+            // running=false：进程启动失败或已经挂了，暖机到此为止，让界面照实报错。
+            if (data !== null && typeof data === 'object' && data.running === false) {
+              endServiceWarmup();
+              return;
+            }
+            watchWarmupProcess(startedAt);
+          })
+          .catch(() => {
+            // 连宿主半区都够不着，继续等也没意义。
+            if (probeStore.get().startingSince === startedAt) endServiceWarmup();
+          });
+      }, WARMUP_WATCH_MS);
+    }
+
     function beginServiceWarmup() {
-      probeStore.set({ tick: probeStore.get().tick + 1, startingSince: Date.now() });
+      const startedAt = Date.now();
+      probeStore.set({ tick: probeStore.get().tick + 1, startingSince: startedAt });
+      watchWarmupProcess(startedAt);
     }
 
     /** 状态下面那行小字：等待进度或失败原因。原因限制长度，避免撑破界面。 */
@@ -2110,7 +2213,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** Which engine reads the reply: the system voice or a local service the user runs. */
+    /** Which engine reads the reply: the system voice or a speech service the user runs. */
     /** 系统语音选择：浏览器自带的音色有软有硬，交给用户挑，附一个试听。 */
     function SystemVoiceField({ t }) {
       const avatar = useAvatar();
@@ -2409,6 +2512,7 @@ window.__ModuleLoader__.load({
               h(AutoSpeechField, { t }),
               h(VolumeField, { t }),
               h(EngineField, { t }),
+              h(ServiceQuickRow, { t, engine: avatar.engine }),
               avatar.engine === 'clone' ? null : h(SystemVoiceField, { t }),
               avatar.engine === 'clone'
                 ? h(
@@ -2674,11 +2778,79 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /** 写剪贴板：优先 Clipboard API，失败退回隐藏 textarea（dsh-app:// 下也能用）。 */
+    async function copyText(text) {
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch {
+        // 权限被拒或不可用，走下面的兜底。
+      }
+      try {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.top = '0';
+        area.style.left = '0';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        const copied = document.execCommand('copy');
+        area.remove();
+        return copied !== false;
+      } catch {
+        return false;
+      }
+    }
+
+    /**
+     * 「复制诊断信息」的文本：客户端看到的设置 + 宿主端状态和日志尾巴。
+     * 宿主那一半够不着时也照样复制客户端信息，别让按钮整个失效。
+     */
+    async function buildDiagnosticText(status) {
+      const avatar = avatarStore.get();
+      const speech = speechStore.get();
+      const stats = statsStore.get();
+      const lines = [
+        'dsh-avatar-frame diagnostics',
+        'time: ' + new Date().toISOString(),
+        'engine: ' + avatar.engine + ' / endpoint: ' + (avatar.endpoint || '(default)') + ' / rate: ' + avatar.rate + ' / tone: ' + avatar.tone + ' / volume: ' + avatar.volume,
+        'health: ' + (status === undefined || status === null ? '?' : status.status) + (status && status.model ? ' (' + status.model + ')' : '') + (status && status.reason ? ' / ' + status.reason : ''),
+        'speech: ' + speech.status + ' / lastError: ' + (speech.lastError || 'none'),
+        stats.lastMs === null ? null : 'last synthesis: ' + Math.round(stats.lastMs) + ' ms',
+      ].filter((line) => line !== null);
+      try {
+        const host = await serviceCall('POST', { action: 'diagnostics' });
+        if (host !== null && typeof host === 'object' && typeof host.text === 'string') lines.push('', host.text);
+      } catch (error) {
+        lines.push('', 'host: unavailable (' + String(error && error.message ? error.message : error) + ')');
+      }
+      return lines.join('\n');
+    }
+
     /** 诊断信息：两个页面共用。 */
     function DiagnosticsBlock({ t, status }) {
       const avatar = useAvatar();
       const speech = useSpeech();
       const stats = useStats();
+      const [copyState, setCopyState] = React.useState(null);
+      // 「未连接」时把探测到的原因也摆出来，不然这一栏永远是「无」，等于没诊断。
+      const probeReason =
+        avatar.engine === 'clone' && status.status === 'offline' ? statusDetail(t, status) : null;
+      const lastError = speech.lastError || probeReason;
+      const onCopy = () => {
+        setCopyState('busy');
+        buildDiagnosticText(status)
+          .then((text) => copyText(text))
+          .then((ok) => setCopyState(ok ? 'ok' : 'fail'))
+          .catch((error) => {
+            trace('diagnostics: copy failed ' + String(error && error.message ? error.message : error));
+            setCopyState('fail');
+          });
+      };
       return h(
         Fragment,
         null,
@@ -2691,9 +2863,25 @@ window.__ModuleLoader__.load({
           speech.status === 'idle' ? null : h('div', null, t('diag.progress') + ': ' + (speech.index + 1) + ' / ' + speech.total),
           h(
             'div',
-            { className: speech.error ? 'dsav-diagError' : undefined },
-            t('diag.lastError') + ': ' + (speech.error || t('diag.none')),
+            { className: lastError ? 'dsav-diagError' : undefined },
+            t('diag.lastError') + ': ' + (lastError || t('diag.none')),
           ),
+        ),
+        h(
+          'div',
+          { className: 'dsav-sectionRow' },
+          h(
+            'button',
+            { type: 'button', className: 'dsav-btn', disabled: copyState === 'busy', onClick: onCopy },
+            t('diag.copy'),
+          ),
+          copyState === 'ok' || copyState === 'fail'
+            ? h(
+                'span',
+                { className: 'dsav-endpointHint' },
+                copyState === 'ok' ? t('diag.copied') : t('diag.copyFailed'),
+              )
+            : null,
         ),
       );
     }
@@ -2814,15 +3002,32 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /** 每秒重渲染一次，让「已等待 N 秒」走起来；active 为 false 时不摆计时器。 */
+    function useSecondTick(active) {
+      const [, bump] = React.useReducer((value) => value + 1, 0);
+      React.useEffect(() => {
+        if (!active) return undefined;
+        const timer = window.setInterval(bump, 1000);
+        return () => window.clearInterval(timer);
+      }, [active]);
+    }
+
     /** 试听按钮：不用去聊天里点小喇叭。 */
     function AuditionButton({ t }) {
       const speech = useSpeech();
       const busy = speech.status === 'speaking' || speech.status === 'paused';
+      // 自备语音服务的第一句要等它把模型加载完，可能几十秒：这段时间给个等待进度，
+      // 别让人以为点了没反应；第一句真的出声后 waitingSince 会被清掉，换成「试听中 n/m」。
+      const waiting = busy && speech.sessionId === null && typeof speech.waitingSince === 'number';
+      useSecondTick(waiting);
+      const waitedSeconds = waiting ? Math.max(1, Math.round((Date.now() - speech.waitingSince) / 1000)) : 0;
       // 只显示试听自己产生的错误：试听不属于任何会话（sessionId 为 null），
       // 聊天里某句朗读失败不应该在设置页显示成「试听失败」。
       const failed = !busy && speech.error && speech.sessionId === null;
       const hint = busy
-        ? t('audition.playing').replace('{n}', String(speech.index + 1)).replace('{m}', String(speech.total))
+        ? waiting
+          ? t('audition.waiting').replace('{s}', String(waitedSeconds))
+          : t('audition.playing').replace('{n}', String(speech.index + 1)).replace('{m}', String(speech.total))
         : failed
           ? t('audition.failed') + '：' + String(speech.error).slice(0, 60)
           : null;
@@ -2839,10 +3044,11 @@ window.__ModuleLoader__.load({
             onClick: () => {
               const text = t('audition.text');
               const engine = avatarStore.get().engine;
-              trace('audition: click received engine=' + engine + ' text=' + text.slice(0, 20));
+              trace('audition: click received engine=' + engine + ' chars=' + text.length);
               stopSpeech();
               if (engine === 'clone') {
-                speakClone(text, null, null).catch((error) => trace('audition: unhandled ' + String(error)));
+                // 试听不回退系统语音：失败就照实报错，免得「自备语音服务没起来」被当成正常试听。
+                speakClone(text, null, null, false).catch((error) => trace('audition: unhandled ' + String(error)));
               } else {
                 auditionSystemVoice();
               }
@@ -2948,10 +3154,13 @@ window.__ModuleLoader__.load({
       return data;
     }
 
-    const EMPTY_SERVICE_CONFIG = { command: '', cwd: '', env: '', autostart: false };
+    const EMPTY_SERVICE_CONFIG = { command: '', cwd: '', env: '', autostart: false, allowRemote: false };
 
-    /** 语音服务：手动启动/停止、随 DSH 启动、启动命令配置。 */
-    function ServiceControl({ t, online, engine }) {
+    /**
+     * 宿主端语音服务的状态与动作：设置页的完整面板和头像弹窗的快捷行共用。
+     * 返回的 act 接受 start / stop / restart / save。
+     */
+    function useServiceHost(t) {
       const [ready, setReady] = React.useState(false);
       const [available, setAvailable] = React.useState(true);
       const [running, setRunning] = React.useState(false);
@@ -2976,6 +3185,7 @@ window.__ModuleLoader__.load({
           cwd: typeof next.cwd === 'string' ? next.cwd : '',
           env: typeof next.env === 'string' ? next.env : '',
           autostart: next.autostart === true,
+          allowRemote: next.allowRemote === true,
         });
       };
 
@@ -3027,8 +3237,19 @@ window.__ModuleLoader__.load({
           .then((data) => {
             setAvailable(true);
             adopt(data);
+            // 开关类保存（随 DSH 启动 / 允许远程地址）不放「已保存」：开关自己就是状态反馈。
+            // 命令 / 目录 / 环境变量那几个输入框点保存时还是要给一句回执。
+            const flagOnly =
+              action === 'save' &&
+              payload !== undefined &&
+              payload !== null &&
+              payload.command === undefined &&
+              payload.cwd === undefined &&
+              payload.env === undefined;
             if (data.ok === false) {
               setMessage(data.error || t('service.failed'));
+            } else if (flagOnly) {
+              setMessage(null);
             } else {
               setMessage(t('service.' + action + 'Done'));
             }
@@ -3037,7 +3258,10 @@ window.__ModuleLoader__.load({
               // 进程若几秒内就退出，把它的输出取回来给用户看。
               window.setTimeout(load, 3000);
             }
-            if (action === 'stop') window.setTimeout(recheckService, 300);
+            if (action === 'stop') {
+              endServiceWarmup();
+              window.setTimeout(recheckService, 300);
+            }
           })
           .catch((error) => {
             setAvailable(false);
@@ -3046,6 +3270,24 @@ window.__ModuleLoader__.load({
           .finally(() => setBusy(''));
       };
 
+      return {
+        ready,
+        available,
+        running,
+        config,
+        draft,
+        setDraft,
+        busy,
+        message,
+        lastExit,
+        load,
+        act,
+      };
+    }
+
+    /** 语音服务：手动启动/停止、随 DSH 启动、启动命令配置。 */
+    function ServiceControl({ t, online, engine }) {
+      const { ready, available, running, config, draft, setDraft, busy, message, lastExit, act } = useServiceHost(t);
       // 先拿到宿主端状态再决定显示什么：音色是「系统语音」时这块默认整段隐藏，
       // 但进程还在跑、或者开着「随 DSH 启动」时仍要露出来，否则用户没有收尾的入口。
       if (!ready) return null;
@@ -3126,6 +3368,24 @@ window.__ModuleLoader__.load({
           ),
         ),
         h(
+          'div',
+          { className: 'dsav-toggleRow' },
+          h('span', { className: 'dsav-toggleLabel' }, t('service.allowRemote')),
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'switch',
+              'aria-checked': config.allowRemote ? 'true' : 'false',
+              'aria-label': t('service.allowRemote'),
+              className: 'dsav-switch' + (config.allowRemote ? ' dsav-switchOn' : ''),
+              onClick: () => act('save', { allowRemote: !config.allowRemote }),
+            },
+            h('span', { className: 'dsav-switchDot' }),
+          ),
+        ),
+        h('div', { className: 'dsav-endpointHint' }, t('service.allowRemoteHint')),
+        h(
           'details',
           { className: 'dsav-serviceConfig' },
           h('summary', null, t('service.configure')),
@@ -3190,6 +3450,135 @@ window.__ModuleLoader__.load({
                   : t('service.exitHint') + ' (exit code ' + lastExit.exitCode + ')',
             )
           : null,
+      );
+    }
+
+    /**
+     * 头像弹窗里的语音服务快捷行：状态 + 启动 / 停止 / 重启。
+     * 完整配置留在设置页，这里只解决「服务没起来，先点一下」。
+     */
+    function ServiceQuickRow({ t, engine }) {
+      const avatar = useAvatar();
+      const status = useCloneStatus(avatar.endpoint);
+      const host = useServiceHost(t);
+      // 不等宿主状态回来才渲染：弹窗打开时先把这一行占住。否则内容会迟到、
+      // 把已经显示的弹窗再撑大一次，看起来就会「顿一下、从小变大」。
+      const loading = !host.ready;
+      if (engine !== 'clone' && !host.running) return null;
+
+      const online = !loading && status.status === 'online';
+      const warm = !loading && status.waitingSeconds !== undefined;
+      const stateClass = loading
+        ? 'dsav-state-checking'
+        : online || (host.running && !warm)
+          ? 'dsav-state-online'
+          : host.running
+            ? 'dsav-state-checking'
+            : 'dsav-state-offline';
+      const stateText = loading
+        ? t('service.loading')
+        : online
+          ? host.running
+            ? t('service.running')
+            : t('service.external')
+          : host.running
+            ? warm
+              ? t('status.checking')
+              : t('service.running')
+            : t('service.stopped');
+      const reason = !loading && host.running && !online ? statusDetail(t, status) : null;
+      const hint = loading
+        ? null
+        : warm
+          ? statusDetail(t, status)
+          : reason !== null
+            ? reason
+            : online
+              ? null
+              : host.message;
+      const lastExitLine =
+        !host.running && host.lastExit !== null && typeof host.lastExit.output === 'string' && host.lastExit.output.trim() !== ''
+          ? host.lastExit.output.trim().split(/\r?\n/).pop().slice(0, 120)
+          : null;
+
+      return h(
+        'div',
+        { className: 'dsav-field dsav-serviceQuick' },
+        h(
+          'div',
+          { className: 'dsav-fieldHead' },
+          h('span', { className: 'dsav-toggleLabel' }, t('section.service')),
+          host.available
+            ? h('span', { className: 'dsav-state ' + stateClass }, h('span', { className: 'dsav-dot' }), stateText)
+            : null,
+        ),
+        !host.available
+          ? h('div', { className: 'dsav-endpointHint' }, t('service.unavailable'))
+          : h(
+              'div',
+              { className: 'dsav-serviceRow' },
+              engine === 'clone' && !host.running
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dsav-btn dsav-btnPrimary',
+                      disabled: loading || host.busy !== '' || online,
+                      onClick: () => host.act('start'),
+                    },
+                    t('service.start'),
+                  )
+                : null,
+              host.running
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dsav-btn',
+                      disabled: loading || host.busy !== '',
+                      onClick: () => host.act('stop'),
+                    },
+                    t('service.stop'),
+                  )
+                : null,
+              host.running
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dsav-btn',
+                      disabled: loading || host.busy !== '',
+                      onClick: () => host.act('restart'),
+                    },
+                    t('service.restart'),
+                  )
+                : null,
+            ),
+        engine === 'clone'
+          ? h(
+              'div',
+              { className: 'dsav-toggleRow' },
+              h('span', { className: 'dsav-toggleLabel' }, t('service.allowRemote')),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  role: 'switch',
+                  'aria-checked': host.config.allowRemote ? 'true' : 'false',
+                  'aria-label': t('service.allowRemote'),
+                  className: 'dsav-switch' + (host.config.allowRemote ? ' dsav-switchOn' : ''),
+                  disabled: loading,
+                  onClick: () => host.act('save', { allowRemote: !host.config.allowRemote }),
+                },
+                h('span', { className: 'dsav-switchDot' }),
+              ),
+            )
+          : null,
+        engine === 'clone' && host.config.allowRemote !== true
+          ? h('div', { className: 'dsav-endpointHint' }, t('service.allowRemoteShort'))
+          : null,
+        hint === null || hint === undefined ? null : h('div', { className: 'dsav-endpointHint' }, hint),
+        hint === null && lastExitLine !== null ? h('div', { className: 'dsav-endpointHint' }, lastExitLine) : null,
       );
     }
 
@@ -3391,6 +3780,8 @@ window.__ModuleLoader__.load({
 .dsav-diagError{color:var(--dsw-alias-state-error-primary)}
 .dsav-service{display:flex;flex-direction:column;gap:8px}
 .dsav-serviceRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dsav-serviceQuick .dsav-fieldHead{flex-wrap:wrap;row-gap:2px}
+.dsav-serviceQuick .dsav-state{white-space:normal;text-align:right}
 .dsav-serviceConfig{display:flex;flex-direction:column;gap:8px;font-size:12px}
 .dsav-serviceConfig summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}
 .dsav-serviceField{display:flex;flex-direction:column;gap:4px;margin-top:4px}
@@ -3459,6 +3850,7 @@ window.__ModuleLoader__.load({
           }
           if (Date.now() - speechRun.settledAt < 3000) return;
           speechRun.settledAt = null;
+          recordSpeechError('playback did not start');
           speechStore.set({
             status: 'idle',
             sessionId: null,
@@ -3505,6 +3897,20 @@ window.__ModuleLoader__.load({
           SettingsSection,
         ),
       );
+    }
+
+    // 测试钩子：只有显式打开开关时才把纯函数挂出去（见 test/client-pure.test.mjs），
+    // 浏览器里这个开关永远不存在，线上没有入口。
+    if (globalThis.__DSH_AVATAR_FRAME_TEST__ === true) {
+      globalThis.__dshAvatarFramePure = {
+        splitSpeech,
+        clampSize,
+        normalizeEndpoint,
+        readStoredVolume,
+        readStoredSize,
+        readStoredLang,
+        formatDuration,
+      };
     }
 
     return { inject: ['slots', 'locale'], apply };

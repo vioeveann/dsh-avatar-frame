@@ -1,8 +1,10 @@
 # 角色头像框 · dsh-avatar-frame
 
+![ci](https://github.com/vioeveann/dsh-avatar-frame/actions/workflows/ci.yml/badge.svg)
+
 [中文](#中文) · [English](#english)
 
-> DeepSeek Harness 的界面插件：在每轮 AI 回复左侧显示角色头像和可编辑的 ID，并可以把回复**朗读**出来——用系统语音，或者调用你自己跑的本地 TTS 服务；也可以在设置里一键启动、停止那个服务进程。
+> DeepSeek Harness 的界面插件：在每轮 AI 回复左侧显示角色头像和可编辑的 ID，并可以把回复**朗读**出来——用系统语音，或者调用你自备的 TTS 服务（默认本机地址，也支持局域网/远程）；也可以在设置里一键启动、停止那个服务进程。
 >
 > 插件**不附带**任何语音模型、参考音频或服务；音色由你自己运行的服务提供，接口见 [docs/tts-contract.md](docs/tts-contract.md)。
 
@@ -25,11 +27,11 @@
 
 - 点 ID 右侧的小喇叭，朗读这一条回复的正文（只读最终回答，不读思考过程和折叠的工具步骤）；
 - 可打开「自动朗读新回复」，新一轮回答结束后自动念（历史轮次不会补念）；
-- 两种引擎：系统语音（开箱即用，**可选音色**，按回复语言自动选中/英文音色、优先神经网络音色）或你自己的本地服务；
+- 两种引擎：系统语音（开箱即用，**可选音色**，按回复语言自动选中/英文音色、优先神经网络音色）或你自己的「自备语音服务」（本机、局域网、远程都行，远程需单独打开开关）；
 - 播放控制条：朗读时接在小喇叭右侧，可暂停/继续、上一句/下一句、五档语速（0.95× / 1.00× / 1.05× / 1.10× / 1.15×）、停止——**两种引擎都支持**；
 - 音量滑块（0–100%，**默认 50%**）；
 - 语气三档：平稳 / 自然 / 活泼，随请求发给你的服务；
-- 试听：选「本地服务」时，设置页 / 插件详情页 / 头像弹窗里都有「试听一句」；选「系统语音」时，音色选择那一行自带试听；
+- 试听：选「自备语音服务」时，设置页 / 插件详情页 / 头像弹窗里都有「试听一句」；选「系统语音」时，音色选择那一行自带试听；
 - 失败提示：某句合成失败时，小喇叭旁出现红点，悬停可看原因；试听失败时按钮旁会直接显示简短原因；
 - 长回复按句切分、提前两段预生成，句间不卡顿。
 
@@ -54,7 +56,7 @@
 **装不上怎么办**
 
 - 用 **GitHub 地址**安装走的是 `git`，机器连不上 github.com 就会报 `ERR_PNPM_GIT_RESOLVE_FAILED`。先验证：`git ls-remote https://github.com/vioeveann/dsh-avatar-frame`；不通就配代理，或在 `hosts` 里给 `github.com` 指定一个可用 IP；
-- 完全绕开 `git` 和 npm：直接下载 [v0.11.5 源码 zip](https://github.com/vioeveann/dsh-avatar-frame/releases/latest) → 解压 → 添加插件时填**解压后的本地目录**（也可以走 `Code` → **Download ZIP**）；
+- 完全绕开 `git` 和 npm：直接下载 [最新 Release 的源码 zip](https://github.com/vioeveann/dsh-avatar-frame/releases/latest) → 解压 → 添加插件时填**解压后的本地目录**（也可以走 `Code` → **Download ZIP**）；
 - 用**包名**安装若提示找不到，先 `npm config get registry` 确认走的是官方源。
 
 ![插件详情页](docs/images/bundle.png)
@@ -83,7 +85,7 @@
 - **Windows 11**：可以安装微软的**自然音色**（晓晓、云希等）。路径是 设置 → 时间和语言 → 语音 → 添加语音（部分版本在「讲述人」里有自然语音的下载项）。装好后**重启一次 DSH**，音色下拉框里会出现名字带 `Natural` 的项；
 - 下拉框会**自动把自然音色排在最前**，不用手动找。
 
-如果下拉框里只有老音色，说明系统里没有、或者当前客户端拿不到——这时候更实际的办法是用「本地服务」：要么跑下面那个示例（微软在线音色），要么接你自己训练的模型。
+如果下拉框里只有老音色，说明系统里没有、或者当前客户端拿不到——这时候更实际的办法是用「自备语音服务」：要么跑下面那个示例（微软在线音色），要么接你自己训练的模型。
 
 **先用一个示例跑通**：仓库里带了一个最小实现，用微软 Edge 的在线语音：
 
@@ -156,7 +158,15 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 
 同一个浏览器的多个窗口之间会同步。换电脑、清缓存会丢，插件没有云同步。
 
-![设置 → 角色头像](docs/images/settings.png)
+设置页（设置 → 角色头像）和插件详情页是同一套设置，界面见上面的「插件详情页」；点头像的弹窗则是最常用的那几项。
+
+### 安全边界与权限
+
+- 插件不收集、不上传任何数据；除了你填写的语音服务地址，不访问网络。头像、ID、设置只存在本机 `localStorage`。
+- 宿主端会：在你指定的目录、带你填的环境变量，执行你填写的命令；读写 `~/.dsh/storages/dsh-avatar-frame/`（配置 + 最多 300 行日志）；在系统临时目录写一个启动脚本，服务停止时删除。
+- 宿主路由 `/dsh-avatar-frame/service` 只接受本机同源请求和桌面版 DSH 自己的页面（`dsh-app://app`）；跨站请求、`text/plain` 形式的请求都会被拒绝。
+- 语音服务地址默认必须是本机（`127.0.0.1` / `localhost` / `::1`）。要连局域网或远程服务，必须在语音服务设置里显式打开「允许远程语音服务地址」，否则宿主代理拒绝转发。
+- 卸载插件不会删除 `~/.dsh/storages/dsh-avatar-frame/` 里的配置和日志；想清干净就手动删这个目录。
 
 ### 已知限制
 
@@ -166,7 +176,7 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 - 与**同样接管 `turn-process`** 的其他插件会冲突；
 - 朗读按句切分，某一句失败会跳过继续读；
 - 插件的前端模块与「一键启动服务」的宿主端代码都在 **DSH 启动时**加载：**安装或升级后必须重启 DSH**，只刷新页面可能没反应；
-- 该功能会**按你填写的命令执行本机程序**，请只填你自己的服务；路由走本机同源请求，没有额外鉴权，别把 DSH 暴露到公网；
+- 该功能会**按你填写的命令执行本机程序**，请只填你自己的服务；路由走本机同源请求，没有额外鉴权（见上面的「安全边界与权限」），别把 DSH 暴露到公网；
 - 英文界面下「试听一句」会读英文例句，中文音色念英文可能带口音——那是模型的能力边界。
 
 ### 目录结构
@@ -196,7 +206,7 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 
 ## English
 
-> An avatar frame and read-aloud plugin for **DeepSeek Harness**: a character portrait and an editable ID beside every assistant reply, with read-aloud through the system voice or **your own** local TTS service — the plugin can also start and stop that process for you.
+> An avatar frame and read-aloud plugin for **DeepSeek Harness**: a character portrait and an editable ID beside every assistant reply, with read-aloud through the system voice or **your own** TTS service (local by default, LAN/remote optional) — the plugin can also start and stop that process for you.
 >
 > It ships **no** voice model, **no** reference audio and **no** service. Your voice comes from a service you run; the contract is in [docs/tts-contract.md](docs/tts-contract.md).
 
@@ -212,10 +222,10 @@ PermissionError: [WinError 10013] 以一种访问权限不允许的方式做了�
 **Read aloud**
 
 - Click the speaker next to the ID to read the reply's final answer only (not the thinking or collapsed tool steps);
-- Two engines: the system voice, or your own local service;
+- Two engines: the system voice, or your own **custom speech service** (local, LAN or remote — a remote one needs its switch turned on);
 - Playback bar beside the speaker: pause/resume, previous/next sentence, five speeds (0.95×–1.15×), stop;
 - Three tone presets (calm / natural / lively) sent to your service;
-- Preview: with 'Local service' there is a preview button on the settings page, the plugin page and the avatar panel; with 'System voice' the voice picker has its own preview;
+- Preview: with 'Custom speech service' there is a preview button on the settings page, the plugin page and the avatar panel; with 'System voice' the voice picker has its own preview;
 - Failure dot next to the speaker with the reason on hover; a failed preview shows a short reason next to the button;
 - Long replies are split by sentence and pre-generated two chunks ahead, so playback stays continuous.
 
@@ -265,7 +275,7 @@ The **System voice** option lists the voices your system exposes to the browser:
 - **Windows 11**: you can install Microsoft's **natural voices** (Xiaoxiao, Yunxi, …) from Settings → Time & language → Speech → Add voices (some builds also offer natural voices under Narrator). After installing, **restart DSH** and the picker will list entries containing `Natural`;
 - The picker **sorts natural voices first** automatically.
 
-If only legacy voices show up, the more practical route is **Local service**: run the example below (Microsoft online voices) or point the plugin at your own model.
+If only legacy voices show up, the more practical route is a **custom speech service**: run the example below (Microsoft online voices) or point the plugin at your own model.
 
 **Try it with the bundled example** (Microsoft Edge online voices):
 
@@ -290,7 +300,15 @@ The command is yours: the plugin does not ship a service, it only executes and s
 
 Settings → **Character avatar**. Every key lives in this browser's `localStorage`: `image`, `id`, `size`, `presets`, `speech`, `engine`, `endpoint`, `rate`, `tone`, `lang` — all under the `dsh-avatar-frame/…/v1` prefix. Windows of the same browser stay in sync; clearing site data resets it, and there is no cloud sync.
 
-![Settings → Character avatar, English UI](docs/images/settings-en.png)
+The settings page (Settings → Character avatar) and the plugin page edit the same settings — see the plugin page screenshot above; the avatar popup exposes the most-used few.
+
+### Security and permissions
+
+- The plugin collects and uploads nothing; apart from the speech service address you type, it makes no network requests. Avatar, ID and settings live in this browser's `localStorage`.
+- The host half will: run the command you type, in the directory and with the environment variables you provide; read and write `~/.dsh/storages/dsh-avatar-frame/` (config plus a log capped at 300 lines); write one launch script into the system temp directory and remove it when the service stops.
+- Its route `/dsh-avatar-frame/service` only accepts same-origin requests from this machine and the desktop app's own page (`dsh-app://app`); cross-site requests and `text/plain` requests are rejected.
+- The speech service address must be local by default (`127.0.0.1` / `localhost` / `::1`). LAN or remote services require explicitly enabling "allow a remote speech service"; otherwise the host proxy refuses to forward.
+- Uninstalling the plugin leaves the config and log in `~/.dsh/storages/dsh-avatar-frame/`; delete that folder if you want it gone.
 
 ### Known limitations
 
@@ -300,7 +318,7 @@ Settings → **Character avatar**. Every key lives in this browser's `localStora
 - Conflicts with other plugins that also replace `turn-process`;
 - Read-aloud is split by sentence; a failed sentence is skipped;
 - The service launcher's host code loads at DSH startup, so **restart DSH after upgrading the plugin**;
-- That feature **runs local programs with the command you type** — only point it at your own service; the route is same-origin on your machine and has no extra auth, so don't expose DSH to the internet;
+- That feature **runs local programs with the command you type** — only point it at your own service; the route is same-origin on your machine with no extra auth (see "Security and permissions" above), so don't expose DSH to the internet;
 - In the English UI the preview reads an English sentence; a Chinese-trained voice will carry an accent — that is the model, not the plugin.
 
 ### License

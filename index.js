@@ -17,7 +17,30 @@ const STORE_DIR = path.join(os.homedir(), '.dsh', 'storages', 'dsh-avatar-frame'
 const STORE_FILE = path.join(STORE_DIR, 'service.json');
 const DEBUG_FILE = path.join(STORE_DIR, 'debug.log');
 
-const EMPTY_CONFIG = { command: '', cwd: '', env: '', autostart: false };
+const EMPTY_CONFIG = { command: '', cwd: '', env: '', autostart: false, allowRemote: false };
+
+/** 本包版本号：诊断信息里带上，报障时一眼能对版本。 */
+const PKG_VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version || '?';
+  } catch {
+    return '?';
+  }
+})();
+
+/** debug.log 的最后几行；读不到就返回空串。 */
+function debugTail(maxLines) {
+  try {
+    const text = fs.readFileSync(DEBUG_FILE, 'utf8');
+    return text
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .slice(-maxLines)
+      .join('\n');
+  } catch {
+    return '';
+  }
+}
 
 /** 把客户端的诊断信息追加到 debug.log，方便排查"点了没反应"这类问题。 */
 function appendDebug(message) {
@@ -39,6 +62,7 @@ function readConfig() {
       cwd: typeof parsed.cwd === 'string' ? parsed.cwd : '',
       env: typeof parsed.env === 'string' ? parsed.env : '',
       autostart: parsed.autostart === true,
+      allowRemote: parsed.allowRemote === true,
     };
   } catch {
     return { ...EMPTY_CONFIG };
@@ -63,20 +87,43 @@ function parseEnv(text) {
   return env;
 }
 
+/**
+ * 只接受本机（loopback）的语音服务地址。
+ * 宿主代理会把响应原样交回；不限制的话，任何同源页面都能把宿主进程当成
+ * 访问内网地址的代理（SSRF）。要用局域网/远程服务的人显式打开 allowRemote。
+ */
+function isLoopbackTtsTarget(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0:0:0:0:0:0:0:1';
+  } catch {
+    return false;
+  }
+}
+
 function jsonBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let tooLarge = false;
     req.on('data', (chunk) => {
+      if (tooLarge) return;
       size += chunk.length;
       if (size > 256 * 1024) {
-        reject(new Error('body too large'));
-        req.destroy();
+        // 不 destroy：把剩余数据读完再回 413，客户端才能收到响应（而不是连接被重置）。
+        tooLarge = true;
+        chunks.length = 0;
         return;
       }
       chunks.push(chunk);
     });
     req.on('end', () => {
+      if (tooLarge) {
+        reject(new Error('body too large'));
+        return;
+      }
       if (chunks.length === 0) {
         resolve({});
         return;
@@ -100,13 +147,26 @@ function send(res, status, payload) {
   res.end(body);
 }
 
-/** 只接受本机来源的请求：这条路由能启动进程，不能对任意页面开放。 */
-function loopbackOrigin(req) {
+/**
+ * 来源校验：这条路由能启动进程，不能让别的本地页面借道。
+ *
+ * 两种合法来源：
+ * - 桌面版 DSH：页面在 `dsh-app://app`，自定义协议转发到本机服务时会把 Origin 删掉
+ *   （dsh-desktop 的 forwardWebRequest 会删 host/origin/cookie/sec-fetch-site），
+ *   所以不带 Origin 的请求必须放行。跨站伪造由下面的 Content-Type 检查挡住：
+ *   `text/plain` 这类 simple request 到不了 action。
+ * - 浏览器直接打开 Web 界面：Origin 的 `scheme://host:port` 必须与本次请求的 Host
+ *   完全一致；其它 loopback 页面（例如 `http://localhost:3000`）不等于本页面，一律拒绝。
+ */
+function originAllowed(req) {
   const origin = req.headers?.origin;
   if (origin === undefined) return true;
+  if (origin === 'dsh-app://app') return true;
+  const host = req.headers?.host;
+  if (typeof host !== 'string' || host === '') return false;
   try {
-    const { hostname } = new URL(origin);
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+    const { protocol, host: originHost } = new URL(origin);
+    return protocol === 'http:' && originHost.toLowerCase() === host.toLowerCase();
   } catch {
     return false;
   }
@@ -149,15 +209,46 @@ function setup(ctx) {
   let lastExit = null;
   // 主动停止时不要把服务日志当成「失败输出」显示出来。
   let stopRequested = false;
+  // 临时启动脚本的清理函数：正常退出、手动停止、启动失败都走它，别在 %TEMP% 里留目录。
+  let cleanupCurrentLaunch = () => {};
 
   const state = () => ({
     ok: true,
+    version: PKG_VERSION,
     running: handle !== null,
     startedAt,
     lastExit,
     config,
     storePath: STORE_FILE,
   });
+
+  /** 诊断文本：给界面「复制诊断信息」用。环境变量只报数量，值不外传。 */
+  const diagnosticsText = () => {
+    const current = state();
+    const envCount = Object.keys(parseEnv(current.config.env)).length;
+    const lines = [
+      'dsh-avatar-frame ' + PKG_VERSION,
+      'time: ' + new Date().toISOString(),
+      'platform: ' + process.platform + ' ' + process.arch + ' / node ' + process.version,
+      'running: ' + current.running + (current.startedAt === null ? '' : ' (since ' + new Date(current.startedAt).toISOString() + ')'),
+      'command: ' + (current.config.command || '(empty)'),
+      'cwd: ' + (current.config.cwd || '(default)'),
+      'env: ' + (envCount === 0 ? '(none)' : envCount + ' key(s), values hidden'),
+      'allow remote tts: ' + (current.config.allowRemote === true),
+      'store: ' + STORE_FILE,
+    ];
+    if (current.lastExit !== null) {
+      const exit = current.lastExit;
+      lines.push(
+        'last exit: code=' + String(exit.exitCode) + ' signal=' + String(exit.signal) + ' at=' + new Date(exit.at).toISOString(),
+      );
+      const output = String(exit.output || '').trim();
+      if (output !== '') lines.push('output tail:', output.slice(-800));
+    }
+    const tail = debugTail(40);
+    if (tail !== '') lines.push('', 'debug.log tail:', tail);
+    return lines.join('\n');
+  };
 
   const stop = async () => {
     if (handle === null) return false;
@@ -174,12 +265,23 @@ function setup(ctx) {
     } catch {
       // 忽略退出细节。
     }
+    // dispose / 手动停止走的是这条路，done 回调已经提前返回，清理得在这里做。
+    cleanupCurrentLaunch();
+    cleanupCurrentLaunch = () => {};
+    // 复位：否则下一次自然退出会被当成「手动停止」，输出会被清空。
+    stopRequested = false;
+    // 手动停止后不要再挂着上一次的退出记录，界面会把它当成这次的结果显示。
+    lastExit = null;
     startedAt = null;
     return true;
   };
 
   const start = async () => {
     if (handle !== null) return { ok: false, error: 'service already running' };
+    // 上一次如果没走到清理（异常/旧版本残留），先收掉再起新的。
+    cleanupCurrentLaunch();
+    cleanupCurrentLaunch = () => {};
+    stopRequested = false;
     const command = String(config.command || '').trim();
     if (command === '') return { ok: false, error: 'no command configured' };
     const cwd = String(config.cwd || '').trim() || os.homedir();
@@ -203,6 +305,23 @@ function setup(ctx) {
     } catch (error) {
       return { ok: false, error: `cannot prepare launch script: ${String(error && error.message ? error.message : error)}` };
     }
+
+    /**
+     * 删掉这次启动用的临时脚本目录。
+     * 只在 finish() 里删不够：手动停止时 handle 先被置空，done 回调看到 handle 变了
+     * 就直接返回，finish() 根本不会跑，目录会一直留在 %TEMP%。
+     */
+    const cleanupLaunchScript = () => {
+      if (scriptFile === null) return;
+      const file = scriptFile;
+      scriptFile = null;
+      try {
+        fs.rmSync(path.dirname(file), { recursive: true, force: true });
+      } catch {
+        // 临时目录交给系统清理。
+      }
+    };
+    cleanupCurrentLaunch = cleanupLaunchScript;
 
     const collectedText = (stream) => {
       try {
@@ -236,13 +355,7 @@ function setup(ctx) {
       stopRequested = false;
       // 只回原始输出：空的时候由界面按当前语言给出提示，避免这里写死一种语言。
       lastExit = { exitCode, signal, at: Date.now(), output: raw };
-      if (scriptFile !== null) {
-        try {
-          fs.rmSync(scriptFile, { force: true });
-        } catch {
-          // 临时文件由系统清理。
-        }
-      }
+      cleanupLaunchScript();
     };
 
     try {
@@ -267,13 +380,8 @@ function setup(ctx) {
       );
       return { ok: true };
     } catch (error) {
-      if (scriptFile !== null) {
-        try {
-          fs.rmSync(scriptFile, { force: true });
-        } catch {
-          // 忽略。
-        }
-      }
+      cleanupLaunchScript();
+      cleanupCurrentLaunch = () => {};
       return { ok: false, error: String(error && error.message ? error.message : error) };
     }
   };
@@ -284,6 +392,7 @@ function setup(ctx) {
       cwd: typeof patch.cwd === 'string' ? patch.cwd : config.cwd,
       env: typeof patch.env === 'string' ? patch.env : config.env,
       autostart: typeof patch.autostart === 'boolean' ? patch.autostart : config.autostart,
+      allowRemote: typeof patch.allowRemote === 'boolean' ? patch.allowRemote : config.allowRemote,
     };
     try {
       writeConfig(next);
@@ -300,7 +409,7 @@ function setup(ctx) {
       send(res, 404, { ok: false, error: 'not found' });
       return;
     }
-    if (!loopbackOrigin(req)) {
+    if (!originAllowed(req)) {
       send(res, 403, { ok: false, error: 'origin not trusted' });
       return;
     }
@@ -313,7 +422,24 @@ function setup(ctx) {
         send(res, 405, { ok: false, error: 'method not allowed' });
         return;
       }
-      const payload = await jsonBody(req);
+      // 必须先查 Content-Type，再读 body：text/plain 属于 CORS simple request，
+      // 攻击页面不用预检就能把 JSON 塞进来，只有这里能拦住。
+      // 注意要完整匹配媒体类型：`application/jsonx` 这种前缀相同的不能放过去。
+      const contentType = String(req.headers?.['content-type'] ?? '').trim().toLowerCase();
+      if (!/^application\/json\s*(?:;|$)/.test(contentType)) {
+        send(res, 415, { ok: false, error: 'content-type must be application/json' });
+        req.resume();
+        return;
+      }
+      let payload;
+      try {
+        payload = await jsonBody(req);
+      } catch (error) {
+        // 非法 JSON 是客户端的问题，不该报 500；也不把内部解析信息回给调用方。
+        const tooLarge = String(error && error.message) === 'body too large';
+        send(res, tooLarge ? 413 : 400, { ok: false, error: tooLarge ? 'body too large' : 'invalid JSON body' });
+        return;
+      }
       const action = String(payload.action || '');
       if (action === 'tts') {
         const target = String(payload.endpoint || '').replace(/\/+$/, '');
@@ -322,16 +448,23 @@ function setup(ctx) {
           send(res, 400, { ok: false, error: 'bad tts request' });
           return;
         }
+        // 默认只允许本机地址：否则任何同源页面都能借宿主进程访问内网任意地址。
+        if (!isLoopbackTtsTarget(target) && config.allowRemote !== true) {
+          send(res, 400, {
+            ok: false,
+            error: 'remote speech service is disabled; enable "allow remote address" in the speech service settings first',
+          });
+          return;
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 180000);
         try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 180000);
           const upstream = await fetch(target + '/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, speed: payload.speed, tone: payload.tone }),
             signal: controller.signal,
           });
-          clearTimeout(timer);
           if (!upstream.ok) {
             send(res, 502, { ok: false, error: 'upstream ' + upstream.status });
             return;
@@ -345,12 +478,19 @@ function setup(ctx) {
         } catch (error) {
           appendDebug('host tts proxy failed: ' + String(error && error.message ? error.message : error));
           send(res, 502, { ok: false, error: String(error && error.message ? error.message : error) });
+        } finally {
+          // 失败路径也要清：否则定时器会空转满 180 秒。
+          clearTimeout(timer);
         }
         return;
       }
       if (action === 'debug') {
         appendDebug(typeof payload.message === 'string' ? payload.message : JSON.stringify(payload));
         send(res, 200, { ok: true });
+        return;
+      }
+      if (action === 'diagnostics') {
+        send(res, 200, { ok: true, text: diagnosticsText() });
         return;
       }
       if (action === 'start') {
