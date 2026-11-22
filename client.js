@@ -14,6 +14,9 @@ window.__ModuleLoader__.load({
     const PRESETS_KEY = 'dsh-avatar-frame/presets/v1';
     const SPEECH_KEY = 'dsh-avatar-frame/speech/v1';
     const ENGINE_KEY = 'dsh-avatar-frame/engine/v1';
+  /** 团队插件（dsh-team）发布的「会话号 → Bot 身份」映射；没装就是空。 */
+  const TEAM_IDENTITY_KEY = 'dsh-team:identity/v1';
+  const TEAM_IDENTITY_EVENT = 'dsh-team:identity';
     const ENDPOINT_KEY = 'dsh-avatar-frame/endpoint/v1';
     const RATE_KEY = 'dsh-avatar-frame/rate/v1';
     const TONE_KEY = 'dsh-avatar-frame/tone/v1';
@@ -358,7 +361,70 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function setImage(src) {
+    /**
+ * 团队身份映射：只读，由 dsh-team 写入 localStorage 并派发事件。
+ * 存的是原始字符串，订阅时按字符串比较，避免整表重渲染。
+ */
+const teamIdentityStore = (() => {
+  let raw = '';
+  const listeners = new Set();
+  const read = () => {
+    try {
+      return window.localStorage.getItem(TEAM_IDENTITY_KEY) || '';
+    } catch {
+      return '';
+    }
+  };
+  const set = (next) => {
+    if (next === raw) return;
+    raw = next;
+    for (const listener of [...listeners]) listener();
+  };
+  return {
+    get: () => raw,
+    subscribe: (listener) => {
+      if (listeners.size === 0) {
+        set(read());
+        window.addEventListener(TEAM_IDENTITY_EVENT, refreshTeamIdentity);
+        window.addEventListener('storage', onStorage);
+      }
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          window.removeEventListener(TEAM_IDENTITY_EVENT, refreshTeamIdentity);
+          window.removeEventListener('storage', onStorage);
+        }
+      };
+    },
+  };
+  function refreshTeamIdentity() {
+    set(read());
+  }
+  function onStorage(event) {
+    if (event !== null && event !== undefined && event.key !== null && event.key !== TEAM_IDENTITY_KEY) return;
+    set(read());
+  }
+})();
+
+/**
+ * 当前会话属于哪个 Bot。
+ * @param sessionId - 会话号。
+ * @returns 命中时返回 { src, id, name, speech, onOpen }，否则 null。
+ */
+function readTeamIdentityFor(sessionId) {
+  const raw = teamIdentityStore.get();
+  if (raw === '' || sessionId === undefined || sessionId === null) return null;
+  try {
+    const map = JSON.parse(raw);
+    const hit = map[String(sessionId)];
+    return hit && typeof hit === 'object' ? hit : null;
+  } catch {
+    return null;
+  }
+}
+
+function setImage(src) {
       const next = src || null;
       avatarStore.set({ src: next });
       persist(IMAGE_KEY, next);
@@ -1771,7 +1837,25 @@ window.__ModuleLoader__.load({
       const { node, turnProcess, t: hostT, useChat, sessionId } = props;
       // 语言按钮改的是插件自己的文案，这里把宿主的 t 换掉。
       const t = useT(hostT);
-      const avatar = useRowAvatar();
+      // 订阅团队身份映射：命中当前会话就用 Bot 的头像和名字。
+      React.useSyncExternalStore(
+        teamIdentityStore.subscribe,
+        () => teamIdentityStore.get(),
+        () => '',
+      );
+      const teamIdentity = readTeamIdentityFor(sessionId);
+      const globalAvatar = useRowAvatar();
+      const avatar = teamIdentity === null
+        ? globalAvatar
+        : {
+            ...globalAvatar,
+            src: typeof teamIdentity.src === 'string' && teamIdentity.src !== '' ? teamIdentity.src : globalAvatar.src,
+            id: typeof teamIdentity.name === 'string' && teamIdentity.name !== ''
+              ? teamIdentity.name
+              : (typeof teamIdentity.id === 'string' ? teamIdentity.id : globalAvatar.id),
+            // Bot 不朗读：子会话里不显示小喇叭。
+            speech: teamIdentity.speech === false ? false : globalAvatar.speech,
+          };
       const speech = useRowSpeech();
       const turnNumber = node !== undefined && node.data !== undefined ? node.data.turn : undefined;
       const answerStep =
