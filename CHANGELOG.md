@@ -2,6 +2,11 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## 0.15.0
+
+- 读 dsh-team 发布的 `dsh-team:identity/v1` 映射：子会话里显示对应 Bot 的头像与 ID，并关闭朗读。
+- 没有该映射时行为不变。
+
 ## [0.14.2] - 2026-11-13
 
 ### 新增
